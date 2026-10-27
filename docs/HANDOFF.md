@@ -82,7 +82,8 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
 - The full seed (`npx prisma db seed`) is idempotent but re-applies demo users' names/placements and Administrator permissions;
   module seeds skip when data exists. To add new demo data to an existing database, run only that module's seed function.
   Demo incident types + forms: `bash scripts/localdb.sh npm run db:seed:incident-types` (local DB applied 27 Oct 2026;
-  **Neon not yet** – ask the owner first).
+  Neon applied 27 Oct 2026 with the owner's consent via `ALLOW_REMOTE_SEED=1 npm run db:seed:incident-types` – Northstar keeps
+  "Environmental Incident" switched off because 2 incidents use it).
 - `next dev` rewrites the block in `AGENTS.md` – leave it.
 
 ## Next steps
