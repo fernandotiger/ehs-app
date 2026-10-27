@@ -1,0 +1,103 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Scheduled jobs: reminder/digest rules evaluated against the due-work providers of each
+// module (src/server/modules/jobs/providers.ts), plus their run history.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum JobKind {
+  OVERDUE
+  UPCOMING
+  DIGEST
+}
+
+enum JobFrequency {
+  DAILY
+  WEEKDAYS
+  WEEKLY
+  MONTHLY
+}
+
+enum JobDelivery {
+  /// One message per record and recipient.
+  INDIVIDUAL
+  /// One grouped message per recipient and local day.
+  DIGEST
+}
+
+enum JobRunTrigger {
+  TEST
+  MANUAL
+  SCHEDULED
+}
+
+enum JobRunOutcome {
+  COMPLETED
+  FAILED
+}
+
+model ScheduledJob {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  kind           JobKind
+  /// Due-work kinds (src/lib/jobs.ts DUE_WORK_KINDS), e.g. "risk.review", "incident.action".
+  targets        String[]
+  scopeType      ScopeType    @default(COMPANY)
+  scopeId        String?
+  frequency      JobFrequency @default(DAILY)
+  /// 0 = Sunday … 6 = Saturday (WEEKLY).
+  weekday        Int?
+  /// 1–31 (MONTHLY; days past the month end run on its last day).
+  dayOfMonth     Int?
+  /// Local run time "HH:mm" in `timeZone`.
+  runTime        String       @default("08:00")
+  timeZone       String       @default("Europe/Dublin")
+  overdueDays    Int          @default(1)
+  upcomingDays   Int          @default(7)
+  /// { owners: boolean, roleIds: string[] }
+  recipients     Json
+  delivery       JobDelivery  @default(INDIVIDUAL)
+  /// "IN_APP" (required) and "EMAIL" (shown as not connected).
+  channels       String[]
+  /// { afterDays, roleIds } – overdue jobs only.
+  escalation     Json?
+  enabled        Boolean      @default(true)
+  version        Int          @default(1)
+  createdById    String?
+  lastRunAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  runs JobRun[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, enabled])
+  @@map("scheduled_jobs")
+}
+
+/// Run history (the latest 500 per tenant are kept).
+model JobRun {
+  id             String        @id @default(cuid())
+  organizationId String
+  jobId          String
+  jobName        String
+  trigger        JobRunTrigger
+  startedAt      DateTime      @default(now())
+  finishedAt     DateTime?
+  timeZone       String
+  /// Local date of the run in the job's time zone (yyyy-mm-dd).
+  localDate      String
+  outcome        JobRunOutcome
+  matchedCount   Int           @default(0)
+  deliveredCount Int           @default(0)
+  escalatedCount Int           @default(0)
+  explanation    String
+  /// Matched items with recipients, due age and site.
+  items          Json          @default("[]")
+  triggeredById  String?
+
+  job ScheduledJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, startedAt])
+  @@index([jobId, trigger, localDate])
+  @@map("job_runs")
+}

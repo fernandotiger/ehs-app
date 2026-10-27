@@ -1,0 +1,207 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: var(--font-display);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-6: var(--chart-6);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Brand tokens (Oleo reference palette) */
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-light: var(--brand-light);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-dark-foreground: var(--brand-dark-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Palette sampled from docs/design/oleo_colors.webp:
+ *   navy banner #3b5382 · dark navy buttons #293d5d · accent blue #567ebc
+ *   page background #f5f6fa · white cards · soft blue tints
+ */
+:root {
+  --brand: #3b5382;
+  --brand-dark: #293d5d;
+  --brand-light: #567ebc;
+  --brand-soft: #e9eef8;
+  /* Text on brand surfaces – recomputed for readability from tenant colours (src/lib/branding.ts). */
+  --brand-foreground: #ffffff;
+  --brand-dark-foreground: #ffffff;
+
+  --background: #f5f6fa;
+  --foreground: #1f2a3d;
+  --card: #ffffff;
+  --card-foreground: #1f2a3d;
+  --popover: #ffffff;
+  --popover-foreground: #1f2a3d;
+  --primary: #3b5382;
+  --primary-foreground: #ffffff;
+  --secondary: #e9eef8;
+  --secondary-foreground: #293d5d;
+  --muted: #eef1f6;
+  --muted-foreground: #66728a;
+  --accent: #e9eef8;
+  --accent-foreground: #293d5d;
+  --destructive: #d64545;
+  --border: #e3e7ef;
+  --input: #dbe1eb;
+  --ring: #567ebc;
+
+  --success: #2f9e6a;
+  --success-foreground: #ffffff;
+  --warning: #e59a2f;
+  --warning-foreground: #3b2a0a;
+  --info: #59b0ff;
+
+  --chart-1: #59b0ff;
+  --chart-2: #554fc5;
+  --chart-3: #6fe373;
+  --chart-4: #f06a3a;
+  --chart-5: #c86cf0;
+  --chart-6: #7be0d0;
+
+  --radius: 0.75rem;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #3d4a60;
+  --sidebar-primary: #3b5382;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef2f9;
+  --sidebar-accent-foreground: #293d5d;
+  --sidebar-border: #eceff5;
+  --sidebar-ring: #567ebc;
+}
+
+.dark {
+  --brand: #6f8fd0;
+  --brand-dark: #1b2940;
+  --brand-light: #8aa7e0;
+  --brand-soft: #22304a;
+  --brand-foreground: #ffffff;
+  --brand-dark-foreground: #ffffff;
+
+  --background: #0f1522;
+  --foreground: #e6ebf5;
+  --card: #161e2e;
+  --card-foreground: #e6ebf5;
+  --popover: #161e2e;
+  --popover-foreground: #e6ebf5;
+  --primary: #6f8fd0;
+  --primary-foreground: #0f1522;
+  --secondary: #22304a;
+  --secondary-foreground: #e6ebf5;
+  --muted: #1c2638;
+  --muted-foreground: #97a3ba;
+  --accent: #22304a;
+  --accent-foreground: #e6ebf5;
+  --destructive: #ef6b6b;
+  --border: #263247;
+  --input: #2c3a52;
+  --ring: #6f8fd0;
+
+  --success: #3fbf85;
+  --success-foreground: #0f1522;
+  --warning: #f0b252;
+  --warning-foreground: #1f1605;
+  --info: #59b0ff;
+
+  --sidebar: #131a28;
+  --sidebar-foreground: #c9d2e3;
+  --sidebar-primary: #6f8fd0;
+  --sidebar-primary-foreground: #0f1522;
+  --sidebar-accent: #1f2a3f;
+  --sidebar-accent-foreground: #e6ebf5;
+  --sidebar-border: #222c3e;
+  --sidebar-ring: #6f8fd0;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading tracking-tight;
+  }
+}
+
+@layer utilities {
+  /* Hexagon pattern used on the navy banner, echoing the Oleo dashboard header. */
+  .bg-hex-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='98' viewBox='0 0 56 98'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34L28 66zm0 32L0 82V66l28 16 28-16v16L28 98z' fill='none' stroke='%23ffffff' stroke-opacity='0.07' stroke-width='1.5'/%3E%3C/svg%3E");
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Print views (e.g. Incidents → Reports): only the page content is printed. */
+@media print {
+  [data-print-hide],
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  body header,
+  nav[aria-label="Primary"] {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}

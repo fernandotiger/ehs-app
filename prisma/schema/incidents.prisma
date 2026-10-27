@@ -1,0 +1,375 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Incident module: configured incident types, reports, people, investigations, absence
+// periods, corrective/preventive actions (shared across incidents) and their child tasks.
+// Incident status is DERIVED from the work (src/server/modules/incidents/workflow.ts); the
+// `status` column is a cache kept up to date by the services for filtering and sorting.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum IncidentSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+/// Cached derived state (never edited directly).
+enum IncidentStatus {
+  DRAFT
+  OPEN
+  INVESTIGATING
+  ACTION_REQUIRED
+  ACTION_IN_PROGRESS
+  AWAITING_EFFECTIVENESS
+  FOLLOW_UP_REQUIRED
+  READY_TO_CLOSE
+  CLOSED
+}
+
+enum InvestigationStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ActionKind {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+enum ActionState {
+  OPEN
+  IN_PROGRESS
+  AWAITING_EFFECTIVENESS
+  EFFECTIVE
+  INEFFECTIVE
+}
+
+enum ActionPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+/// An incident type: the built-in catalogue (seeded per tenant) plus types an administrator adds. Can be renamed
+/// (incidents keep their snapshot label); never deleted – switched off with isActive.
+model IncidentType {
+  id                    String   @id @default(cuid())
+  organizationId        String
+  /// Stable key, e.g. "near-miss", "audit-non-conformance" (used by follow-up routing); generated from the first
+  /// name for added types and never changed.
+  key                   String
+  name                  String
+  sortOrder             Int      @default(0)
+  isActive              Boolean  @default(true)
+  multipleInvestigators Boolean  @default(true)
+  assignmentRequired    Boolean  @default(true)
+  investigationEnabled  Boolean  @default(true)
+  investigationRequired Boolean  @default(true)
+  defaultConfidential   Boolean  @default(false)
+  attachmentsAllowed    Boolean  @default(true)
+  /// Investigation target = event date + targetDays (1–365).
+  targetDays            Int      @default(7)
+  /// Bound Form Builder forms (FormDefinition ids); new records use their latest published version.
+  reportFormId          String?
+  investigationFormId   String?
+  version               Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  subtypes  IncidentSubtype[]
+  incidents Incident[]
+
+  @@unique([organizationId, key])
+  @@unique([organizationId, name])
+  @@map("incident_types")
+}
+
+model IncidentSubtype {
+  id             String   @id @default(cuid())
+  organizationId String
+  typeId         String
+  name           String
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  type      IncidentType @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  incidents Incident[]
+
+  @@unique([typeId, name])
+  @@index([organizationId, typeId])
+  @@map("incident_subtypes")
+}
+
+model Incident {
+  id                      String           @id @default(cuid())
+  organizationId          String
+  reference               String
+  /// Client-generated id (wizard / offline outbox) – makes report creation idempotent.
+  clientId                String?          @unique
+  typeId                  String
+  /// Snapshot labels: renaming a type/subtype later never rewrites history.
+  typeLabel               String
+  subtypeId               String?
+  subtypeLabel            String?
+  title                   String
+  /// "What happened?"
+  narrative               String?
+  severity                IncidentSeverity @default(MINOR)
+  businessUnitId          String?
+  siteId                  String?
+  locationId              String?
+  departmentId            String?
+  preciseLocation         String?
+  shift                   String?
+  occurredAt              DateTime?
+  investigationTargetDate DateTime?        @db.Date
+  isConfidential          Boolean          @default(false)
+  isDraft                 Boolean          @default(true)
+  submittedAt             DateTime?
+  reporterId              String
+  immediateAction         String?
+  /// First aid / treatment / outcome.
+  firstAid                String?
+  nurseNotified           Boolean          @default(false)
+  /// Named internal notification choices (intent only – nothing is e-mailed).
+  notifyUserIds           String[]
+  /// Captured Report questionnaire (QuestionnaireSnapshot) and its answers.
+  reportForm              Json?
+  answers                 Json             @default("{}")
+  /// Title + answers of questions marked searchable (register search).
+  searchText              String           @default("")
+  closedAt                DateTime?
+  closedById              String?
+  closureNote             String?
+  archivedAt              DateTime?
+  /// Cached derived status (workflow.ts deriveIncidentStatus).
+  status                  IncidentStatus   @default(DRAFT)
+  /// Origin when raised from another module (Audit / Inspection / Law follow-up routing).
+  sourceType              String?
+  sourceId                String?
+  sourceKey               String?
+  sourceLabel             String?
+  sourceHref              String?
+  version                 Int              @default(1)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+
+  type          IncidentType           @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  subtype       IncidentSubtype?       @relation(fields: [subtypeId], references: [id], onDelete: Restrict)
+  reporter      User                   @relation("IncidentReporter", fields: [reporterId], references: [id])
+  people        IncidentPerson[]
+  investigators IncidentInvestigator[]
+  investigation Investigation?
+  actions       ActionIncident[]
+
+  @@unique([organizationId, reference])
+  @@index([organizationId, siteId])
+  @@index([organizationId, status])
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, typeId])
+  @@index([reporterId])
+  @@map("incidents")
+}
+
+model IncidentPerson {
+  id             String   @id @default(cuid())
+  organizationId String
+  incidentId     String
+  /// Name as reported, or "Unknown".
+  name           String
+  /// Optional directory link when the person is an employee.
+  userId         String?
+  /// EMPLOYEE | TEMPORARY_WORKER | CONTRACTOR | VISITOR | PUBLIC | YOUNG_PERSON | SUPPLIER
+  personType     String
+  /// INJURED | WITNESS | OTHER
+  involvement    String
+  injuryDetails  String?
+  injuryType     String?
+  bodyPart       String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, incidentId])
+  @@map("incident_people")
+}
+
+model IncidentInvestigator {
+  id             String   @id @default(cuid())
+  organizationId String
+  incidentId     String
+  userId         String
+  assignedAt     DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  user     User     @relation("IncidentInvestigatorUser", fields: [userId], references: [id])
+
+  @@unique([incidentId, userId])
+  @@index([organizationId, userId])
+  @@map("incident_investigators")
+}
+
+model Investigation {
+  id                        String              @id @default(cuid())
+  organizationId            String
+  incidentId                String              @unique
+  status                    InvestigationStatus @default(IN_PROGRESS)
+  investigatorId            String?
+  /// Captured Investigation questionnaire (findings + root cause are its mandatory questions).
+  form                      Json?
+  answers                   Json                @default("{}")
+  healthSafetyImpact        Boolean             @default(false)
+  hazardGroup               String?
+  environmentalImpact       Boolean             @default(false)
+  environmentalAspect       String?
+  environmentalDescription  String?
+  environmentalDuration     Float?
+  /// MINUTES | HOURS | DAYS
+  environmentalDurationUnit String?
+  /// Lookup value ids from the incident.cause.* lists.
+  causeIds                  String[]
+  reportable                Boolean             @default(false)
+  /// Lookup value ids from the incident.reportee.* lists (intent only).
+  reporteeIds               String[]
+  operatingHoursLost        Float?
+  /// null = not decided yet.
+  actionsRequired           Boolean?
+  closingDecision           String?
+  startedAt                 DateTime            @default(now())
+  startedById               String?
+  completedAt               DateTime?
+  completedById             String?
+  version                   Int                 @default(1)
+  updatedAt                 DateTime            @updatedAt
+
+  incident     Incident        @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  investigator User?           @relation("InvestigationInvestigator", fields: [investigatorId], references: [id])
+  absences     AbsencePeriod[]
+
+  @@index([organizationId, status])
+  @@map("investigations")
+}
+
+/// Loss period recorded on an investigation (days lost = inclusive calendar days, Restricted duties excluded).
+model AbsencePeriod {
+  id              String   @id @default(cuid())
+  organizationId  String
+  investigationId String
+  startDate       DateTime @db.Date
+  endDate         DateTime @db.Date
+  /// Absence kind label (incident.absence-kind list).
+  kind            String
+  /// True for Restricted duties – excluded from days lost (stored at save time).
+  restricted      Boolean  @default(false)
+  note            String?
+  sortOrder       Int      @default(0)
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, investigationId])
+  @@map("absence_periods")
+}
+
+/// Corrective / preventive action. One action may address several incidents (ActionIncident),
+/// or come from an Audit / Inspection / Law source without an incident.
+model CorrectiveAction {
+  id                String         @id @default(cuid())
+  organizationId    String
+  reference         String
+  description       String
+  kind              ActionKind     @default(CORRECTIVE)
+  ownerId           String
+  businessUnitId    String?
+  siteId            String?
+  locationId        String?
+  departmentId      String?
+  dueDate           DateTime       @db.Date
+  priority          ActionPriority @default(NORMAL)
+  /// CAPA category label (incident.capa-category list).
+  capaCategory      String?
+  reviewerId        String?
+  plannedReviewDate DateTime?      @db.Date
+  state             ActionState    @default(OPEN)
+  completionComment String?
+  completedAt       DateTime?
+  completedById     String?
+  reviewComment     String?
+  reviewedAt        DateTime?
+  reviewedById      String?
+  /// Set on follow-up actions raised after an Ineffective review.
+  parentActionId    String?
+  sourceType        String?
+  sourceId          String?
+  sourceKey         String?
+  sourceLabel       String?
+  sourceHref        String?
+  /// Trends & prevention snapshot: { criteria, matched: [{ id, reference }], capturedAt }.
+  trend             Json?
+  createdById       String?
+  archivedAt        DateTime?
+  version           Int            @default(1)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  owner     User               @relation("ActionOwner", fields: [ownerId], references: [id])
+  reviewer  User?              @relation("ActionReviewer", fields: [reviewerId], references: [id])
+  parent    CorrectiveAction?  @relation("ActionFollowUps", fields: [parentActionId], references: [id], onDelete: Restrict)
+  followUps CorrectiveAction[] @relation("ActionFollowUps")
+  incidents ActionIncident[]
+  tasks     ActionTask[]
+
+  @@unique([organizationId, reference])
+  @@index([organizationId, siteId])
+  @@index([organizationId, state])
+  @@index([ownerId])
+  @@index([reviewerId])
+  @@index([parentActionId])
+  @@map("corrective_actions")
+}
+
+model ActionIncident {
+  organizationId String
+  actionId       String
+  incidentId     String
+  linkedById     String?
+  linkedAt       DateTime @default(now())
+
+  action   CorrectiveAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  incident Incident         @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@id([actionId, incidentId])
+  @@index([organizationId, incidentId])
+  @@map("action_incidents")
+}
+
+/// Child task of an action. Completing a task never completes its action.
+model ActionTask {
+  id                String         @id @default(cuid())
+  organizationId    String
+  actionId          String
+  title             String
+  ownerId           String
+  businessUnitId    String?
+  siteId            String?
+  locationId        String?
+  departmentId      String?
+  dueDate           DateTime       @db.Date
+  priority          ActionPriority @default(NORMAL)
+  done              Boolean        @default(false)
+  completionComment String?
+  completedAt       DateTime?
+  completedById     String?
+  sortOrder         Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  action CorrectiveAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  owner  User             @relation("ActionTaskOwner", fields: [ownerId], references: [id])
+
+  @@index([organizationId, actionId])
+  @@index([organizationId, siteId])
+  @@index([ownerId])
+  @@map("action_tasks")
+}

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ehs-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "ehs-localdb-start",
+      "runtimeExecutable": "C:/Program Files/Git/usr/bin/bash.exe",
+      "runtimeArgs": ["-lc", "cd \"$(cygpath -u 'C:/Users/User/Documents/claude_code/code/mvp1/docs-app')\" && BETTER_AUTH_URL=http://localhost:3101 bash scripts/localdb.sh npx next start -p 3101"],
+      "port": 3101
+    }
+  ]
+}

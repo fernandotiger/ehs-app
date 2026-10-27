@@ -1,0 +1,355 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Risk module: assessments (captured Risk form + rules, hazards/aspects, approval revisions,
+// periodic reviews), objectives → targets → management programmes, and Risk tasks (RA / MP,
+// with sub-tasks). Scoring maths: src/lib/risk/scoring.ts; rules: src/server/modules/risk/*.ts.
+// People are referenced by user id (names are loaded for display), like the job engine.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RiskAssessmentStatus {
+  DRAFT
+  AWAITING_APPROVAL
+  APPROVED
+  ARCHIVED
+}
+
+enum RiskRevisionAction {
+  /// Approval of the assessment (initial or a revised draft).
+  APPROVED
+  /// A completed top-level scoring task rescored a hazard/aspect.
+  TASK_RESCORE
+}
+
+enum RiskTargetDirection {
+  INCREASE
+  DECREASE
+}
+
+/// Objectives and targets.
+enum RiskStrategyStatus {
+  ACTIVE
+  COMPLETED
+}
+
+enum RiskProgrammeStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+enum RiskTaskKind {
+  /// Risk assessment task: assessment + hazard, optional scoring factor update on completion.
+  RA
+  /// Management programme task (no rescoring).
+  MP
+}
+
+enum RiskTaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+model RiskAssessment {
+  id             String               @id @default(cuid())
+  organizationId String
+  /// "risk-assessment" numbering, e.g. RA-2026-0001.
+  reference      String
+  /// Stable QR label id – the same label keeps identifying the assessment through reviews/revisions.
+  labelId        String
+  /// Client-generated id from the wizard – makes creation idempotent.
+  clientId       String?              @unique
+  title          String
+  /// Activity description.
+  description    String?
+  businessUnitId String?
+  siteId         String?
+  locationId     String?
+  departmentId   String?
+  /// Responsible person.
+  ownerId        String?
+  approverId     String?
+  reviewDate     DateTime?            @db.Date
+  participantIds String[]
+  /// Activity/item type and identity (e.g. Equipment · Ladder LAD-001).
+  itemType       String?
+  itemIdentity   String?
+  operationMode  String?
+  workArea       String?
+  /// Health & Safety: people exposed.
+  peopleExposed  String?
+  /// Environment: impact context.
+  impactContext  String?
+  status         RiskAssessmentStatus @default(DRAFT)
+  /// Number of approvals/rescorings so far (0 until first approval).
+  revision       Int                  @default(0)
+  /// Captured Risk form (QuestionnaireSnapshot incl. its settings) and the rules used for scoring.
+  form           Json
+  formVersionId  String
+  /// 5x5 | 3x3 | FMEA | CHECKLIST
+  method         String
+  /// HEALTH_SAFETY | ENVIRONMENT
+  domain         String
+  /// Captured RiskFormSettings (thresholds, review frequency, notice days, sites, footnote).
+  rules          Json
+  /// Custom answers of the captured questionnaire.
+  answers        Json                 @default("{}")
+  /// Current overall score (highest hazard score) and its band; null without scored hazards.
+  currentScore   Int?
+  band           String?
+  isConfidential Boolean              @default(false)
+  submittedAt    DateTime?
+  approvedAt     DateTime?
+  approvedById   String?
+  lastReviewedAt DateTime?            @db.Date
+  archivedAt     DateTime?
+  clonedFromId   String?
+  createdById    String?
+  version        Int                  @default(1)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  hazards   RiskHazard[]
+  revisions RiskRevision[]
+  reviews   RiskReview[]
+  tasks     RiskTask[]
+
+  @@unique([organizationId, reference])
+  @@unique([organizationId, labelId])
+  @@index([organizationId, siteId])
+  @@index([organizationId, status])
+  @@index([organizationId, reviewDate])
+  @@index([ownerId])
+  @@index([approverId])
+  @@map("risk_assessments")
+}
+
+/// One hazard (Health & Safety) or aspect (Environment) of an assessment.
+model RiskHazard {
+  id              String   @id @default(cuid())
+  organizationId  String
+  assessmentId    String
+  sortOrder       Int      @default(0)
+  /// Activity / job step.
+  activity        String   @default("")
+  /// Hazard or aspect name.
+  name            String   @default("")
+  consequence     String   @default("")
+  controls        String   @default("")
+  recommendation  String?
+  justification   String   @default("")
+  /// 5×5 / 3×3 values.
+  likelihood      Int?
+  severity        Int?
+  /// FMEA factor ratings { factorKey: 1–10 }.
+  factors         Json?
+  /// Checklist: YES | NO | NOT_APPLICABLE.
+  checklistResult String?
+  /// Computed score (null while the method values are incomplete).
+  score           Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assessment RiskAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  tasks      RiskTask[]
+
+  @@index([organizationId, assessmentId])
+  @@map("risk_hazards")
+}
+
+/// Retained score + hazard/control snapshot of an approval or a task-driven rescore.
+model RiskRevision {
+  id             String             @id @default(cuid())
+  organizationId String
+  assessmentId   String
+  revision       Int
+  date           DateTime           @db.Date
+  action         RiskRevisionAction
+  comment        String?
+  score          Int?
+  band           String?
+  /// Hazards/aspects with controls and values at that moment.
+  hazards        Json
+  taskId         String?
+  taskReference  String?
+  actorId        String?
+  actorName      String?
+  createdAt      DateTime           @default(now())
+
+  assessment RiskAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, revision])
+  @@index([organizationId, date])
+  @@map("risk_revisions")
+}
+
+/// Periodic review: confirms validity and moves the next review date (no rescoring).
+model RiskReview {
+  id             String   @id @default(cuid())
+  organizationId String
+  assessmentId   String
+  reviewDate     DateTime @db.Date
+  comment        String
+  nextReviewDate DateTime @db.Date
+  reviewerId     String
+  reviewerName   String?
+  /// Revision and score at the time (unchanged by the review).
+  revision       Int
+  score          Int?
+  createdAt      DateTime @default(now())
+
+  assessment RiskAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, reviewDate])
+  @@index([assessmentId])
+  @@map("risk_reviews")
+}
+
+model RiskObjective {
+  id             String             @id @default(cuid())
+  organizationId String
+  title          String
+  /// Objective domain label (risk.objective-domain list).
+  domain         String?
+  businessUnitId String?
+  siteId         String?
+  locationId     String?
+  departmentId   String?
+  ownerId        String
+  deadline       DateTime           @db.Date
+  /// Desired outcome / policy commitment.
+  description    String?
+  status         RiskStrategyStatus @default(ACTIVE)
+  createdById    String?
+  version        Int                @default(1)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  targets    RiskTarget[]
+  programmes RiskProgramme[]
+
+  @@index([organizationId, siteId])
+  @@index([ownerId])
+  @@map("risk_objectives")
+}
+
+model RiskTarget {
+  id             String              @id @default(cuid())
+  organizationId String
+  objectiveId    String
+  title          String
+  ownerId        String
+  deadline       DateTime            @db.Date
+  direction      RiskTargetDirection
+  /// Unit label (risk.target-unit list), e.g. "%".
+  unit           String
+  baseline       Float
+  current        Float
+  goal           Float
+  status         RiskStrategyStatus  @default(ACTIVE)
+  createdById    String?
+  version        Int                 @default(1)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  objective  RiskObjective         @relation(fields: [objectiveId], references: [id], onDelete: Restrict)
+  programmes RiskProgrammeTarget[]
+
+  @@index([organizationId, objectiveId])
+  @@index([ownerId])
+  @@map("risk_targets")
+}
+
+model RiskProgramme {
+  id             String              @id @default(cuid())
+  organizationId String
+  objectiveId    String
+  title          String
+  businessUnitId String?
+  siteId         String?
+  locationId     String?
+  departmentId   String?
+  ownerId        String
+  startDate      DateTime            @db.Date
+  deadline       DateTime            @db.Date
+  /// Means, resources and scope.
+  means          String?
+  budget         Float?
+  status         RiskProgrammeStatus @default(PLANNED)
+  createdById    String?
+  version        Int                 @default(1)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  objective RiskObjective         @relation(fields: [objectiveId], references: [id], onDelete: Restrict)
+  targets   RiskProgrammeTarget[]
+  tasks     RiskTask[]
+
+  @@index([organizationId, siteId])
+  @@index([organizationId, objectiveId])
+  @@index([ownerId])
+  @@map("risk_programmes")
+}
+
+model RiskProgrammeTarget {
+  organizationId String
+  programmeId    String
+  targetId       String
+
+  programme RiskProgramme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  target    RiskTarget    @relation(fields: [targetId], references: [id], onDelete: Restrict)
+
+  @@id([programmeId, targetId])
+  @@index([organizationId, targetId])
+  @@map("risk_programme_targets")
+}
+
+model RiskTask {
+  id                String         @id @default(cuid())
+  organizationId    String
+  /// "risk-task" numbering, e.g. RT-2026-0001.
+  reference         String
+  kind              RiskTaskKind
+  title             String
+  /// Additional information.
+  info              String?
+  ownerId           String
+  createdOn         DateTime       @db.Date
+  dueDate           DateTime       @db.Date
+  programmeId       String
+  assessmentId      String?
+  hazardId          String?
+  /// Scoring factor changed on completion (top-level RA tasks only): likelihood | severity | checklist | <FMEA factor key>.
+  factor            String?
+  originalValue     Int?
+  targetValue       Int?
+  actualValue       Int?
+  parentId          String?
+  status            RiskTaskStatus @default(OPEN)
+  completionComment String?
+  completedOn       DateTime?      @db.Date
+  completedAt       DateTime?
+  completedById     String?
+  businessUnitId    String?
+  siteId            String?
+  locationId        String?
+  departmentId      String?
+  createdById       String?
+  version           Int            @default(1)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  programme  RiskProgramme   @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  assessment RiskAssessment? @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  hazard     RiskHazard?     @relation(fields: [hazardId], references: [id], onDelete: Restrict)
+  parent     RiskTask?       @relation("RiskSubTasks", fields: [parentId], references: [id], onDelete: Restrict)
+  subTasks   RiskTask[]      @relation("RiskSubTasks")
+
+  @@unique([organizationId, reference])
+  @@index([organizationId, siteId])
+  @@index([organizationId, status])
+  @@index([programmeId])
+  @@index([assessmentId])
+  @@index([parentId])
+  @@index([ownerId])
+  @@map("risk_tasks")
+}

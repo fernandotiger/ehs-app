@@ -1,0 +1,67 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Form Builder: questionnaire designs used by modules (Risk, Incident now; Audit, Inspection,
+// Law later). A form has one editable draft and immutable published versions; records that use
+// a form capture a snapshot of the version they were created with.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum FormStatus {
+  /// The draft differs from the last published version (or the form was never published).
+  DRAFT
+  /// The draft equals the last published version.
+  PUBLISHED
+}
+
+model FormDefinition {
+  id               String     @id @default(cuid())
+  organizationId   String
+  name             String
+  /// Owning module key (src/lib/forms/catalog.ts FORM_MODULES), e.g. "risk", "incidents".
+  module           String
+  /// Risk: 5x5 | 3x3 | FMEA | CHECKLIST · Incident: REPORT | INVESTIGATION · Audit: STANDARD | SCORABLE | EXPRESS …
+  purpose          String
+  status           FormStatus @default(DRAFT)
+  /// Latest published version number (0 = never published).
+  currentVersion   Int        @default(0)
+  /// Latest published FormVersion (fast lookup for modules).
+  currentVersionId String?
+  /// Draft design: FormFieldDefinition[]
+  fields           Json       @default("[]")
+  /// Draft form-level settings (Risk: matrix and review rules).
+  settings         Json       @default("{}")
+  /// Optimistic concurrency for the designer.
+  version          Int        @default(1)
+  createdById      String?
+  updatedById      String?
+  publishedAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  versions FormVersion[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, module, purpose])
+  @@map("form_definitions")
+}
+
+/// IMMUTABLE once written (UPDATE/DELETE blocked by a database trigger).
+model FormVersion {
+  id              String   @id @default(cuid())
+  organizationId  String
+  formId          String
+  version         Int
+  /// Form name at publication.
+  name            String
+  module          String
+  purpose         String
+  fields          Json
+  settings        Json
+  publishedAt     DateTime @default(now())
+  publishedById   String?
+  publishedByName String?
+
+  form FormDefinition @relation(fields: [formId], references: [id], onDelete: Restrict)
+
+  @@unique([formId, version])
+  @@index([organizationId, module, purpose])
+  @@map("form_versions")
+}

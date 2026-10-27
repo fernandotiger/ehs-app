@@ -1,0 +1,531 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Platform: tenancy, identity, organisation structure, RBAC and shared services.
+// Module files may add back-relation fields to User / org-structure models below,
+// grouped under a "// <Module>" comment.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// A tenant (customer company). Not tenant-scoped itself.
+model Organization {
+  id             String             @id @default(cuid())
+  name           String
+  /// URL-safe unique handle, e.g. "northstar".
+  slug           String             @unique
+  status         OrganizationStatus @default(ACTIVE)
+  /// Module keys enabled for this tenant (src/lib/modules.ts). Subscription controls this.
+  enabledModules String[]
+  plan           String             @default("trial")
+  timeZone       String             @default("Europe/Dublin")
+  locale         String             @default("en-IE")
+  /// Branding: { primary, secondary, tertiary, logo?: { storageDriver, storageKey, mimeType } }
+  branding       Json               @default("{}")
+  /// Optimistic concurrency for company settings and branding edits.
+  version        Int                @default(1)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@map("organizations")
+}
+
+// ─── Identity (Better Auth compatible) ───────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  /// Globally unique: a person signs in to exactly one tenant.
+  email          String   @unique
+  emailVerified  Boolean  @default(false)
+  image          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  employeeNumber  String?
+  jobTitle        String?
+  phone           String?
+  isActive        Boolean @default(true)
+  /// Home placement (derived from the department where one is chosen).
+  businessUnitId  String?
+  siteId          String?
+  locationId      String?
+  departmentId    String?
+  managerId       String?
+  /// Directory role reference (e.g. from bulk import). Not an access grant – see RoleAssignment.
+  directoryRoleId String?
+
+  businessUnit  BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  directoryRole Role?         @relation("UserDirectoryRole", fields: [directoryRoleId], references: [id], onDelete: SetNull)
+  site          Site?         @relation(fields: [siteId], references: [id])
+  location      Location?     @relation(fields: [locationId], references: [id])
+  department    Department?   @relation(fields: [departmentId], references: [id])
+  manager       User?         @relation("UserManager", fields: [managerId], references: [id])
+  reports       User[]        @relation("UserManager")
+
+  sessions        Session[]
+  accounts        Account[]
+  roleAssignments RoleAssignment[]
+  notifications   Notification[]
+  uploadSessions  UploadSession[]
+  attachments     Attachment[]
+  comments        Comment[]
+
+  // Documents
+  documentAudiences            DocumentAudience[]
+  documentAcknowledgements     DocumentAcknowledgement[]
+  documentVersionsUploaded     DocumentVersion[]
+  documentsCreated             Document[]                    @relation("DocumentCreatedBy")
+  acknowledgementReminders     AcknowledgementReminder[]
+  documentSurveysCreated       DocumentSurvey[]              @relation("DocumentSurveyCreatedBy")
+  /// Named survey answers only – anonymous responses have no respondent.
+  documentSurveyResponses      DocumentSurveyResponse[]
+  documentSurveyParticipations DocumentSurveyParticipation[]
+
+  // Incidents
+  incidentsReported      Incident[]             @relation("IncidentReporter")
+  incidentInvestigations IncidentInvestigator[] @relation("IncidentInvestigatorUser")
+  investigationsLed      Investigation[]        @relation("InvestigationInvestigator")
+  actionsOwned           CorrectiveAction[]     @relation("ActionOwner")
+  actionsToReview        CorrectiveAction[]     @relation("ActionReviewer")
+  actionTasksOwned       ActionTask[]           @relation("ActionTaskOwner")
+
+  @@unique([organizationId, employeeNumber])
+  @@index([organizationId, isActive])
+  @@index([departmentId])
+  @@index([locationId])
+  @@index([siteId])
+  @@index([managerId])
+  @@index([directoryRoleId])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+// ─── Organisation structure: Business unit → Site → Location → Department ───
+// Each level stores its ancestors (denormalised) so scope checks are single-column
+// filters. OrgStructureService keeps them consistent when a parent changes.
+
+model BusinessUnit {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  code           String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sites       Site[]
+  locations   Location[]
+  departments Department[]
+  users       User[]
+
+  // Documents
+  documentAudiences DocumentAudience[]
+
+  @@unique([organizationId, name])
+  @@map("business_units")
+}
+
+model Site {
+  id             String   @id @default(cuid())
+  organizationId String
+  businessUnitId String
+  name           String
+  code           String?
+  address        String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  locations    Location[]
+  departments  Department[]
+  users        User[]
+
+  // Documents
+  documentAudiences DocumentAudience[]
+
+  @@unique([organizationId, businessUnitId, name])
+  @@index([organizationId, businessUnitId])
+  @@map("sites")
+}
+
+model Location {
+  id             String   @id @default(cuid())
+  organizationId String
+  businessUnitId String
+  siteId         String
+  name           String
+  code           String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  site         Site         @relation(fields: [siteId], references: [id])
+  departments  Department[]
+  users        User[]
+
+  // Documents
+  documentAudiences DocumentAudience[]
+
+  @@unique([organizationId, siteId, name])
+  @@index([organizationId, siteId])
+  @@map("locations")
+}
+
+model Department {
+  id             String   @id @default(cuid())
+  organizationId String
+  businessUnitId String
+  siteId         String
+  locationId     String
+  name           String
+  code           String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  site         Site         @relation(fields: [siteId], references: [id])
+  location     Location     @relation(fields: [locationId], references: [id])
+  users        User[]
+
+  // Documents
+  documentAudiences DocumentAudience[]
+
+  @@unique([organizationId, locationId, name])
+  @@index([organizationId, siteId])
+  @@map("departments")
+}
+
+// ─── Access control: roles are data; assignments pair a role with a scope ────
+
+enum ScopeType {
+  COMPANY
+  BUSINESS_UNIT
+  SITE
+  LOCATION
+  DEPARTMENT
+}
+
+model Role {
+  id             String   @id @default(cuid())
+  organizationId String
+  /// Stable slug, e.g. "administrator".
+  key            String
+  name           String
+  description    String?
+  /// System roles can be edited but not deleted.
+  isSystem       Boolean  @default(false)
+  /// Permission keys from src/lib/permissions.ts
+  permissions    String[]
+  /// Optimistic concurrency for the permission editor.
+  version        Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments    RoleAssignment[]
+  directoryUsers User[]           @relation("UserDirectoryRole")
+
+  // Documents
+  documentAudiences DocumentAudience[]
+
+  @@unique([organizationId, key])
+  @@unique([organizationId, name])
+  @@map("roles")
+}
+
+model RoleAssignment {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String
+  scopeType      ScopeType @default(COMPANY)
+  /// Id of the business unit / site / location / department (null for COMPANY).
+  scopeId        String?
+  /// "COMPANY" or "<SCOPE_TYPE>:<scopeId>" – makes person + role + scope unique.
+  scopeKey       String
+  /// The tenant owner's company-wide administrator assignment cannot be removed.
+  isProtected    Boolean   @default(false)
+  createdById    String?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, scopeKey])
+  @@index([organizationId, roleId])
+  @@index([organizationId, scopeType, scopeId])
+  @@map("role_assignments")
+}
+
+// ─── Configuration storage ───────────────────────────────────────────────────
+
+/// Typed key/value configuration per tenant. Keys and zod schemas are declared in
+/// src/lib/settings/registry.ts (e.g. "system", "numbering", "incident").
+model OrgSetting {
+  organizationId String
+  key            String
+  value          Json
+  /// Optimistic concurrency (Configuration forms send the version they loaded).
+  version        Int      @default(1)
+  updatedAt      DateTime @updatedAt
+  updatedById    String?
+
+  @@id([organizationId, key])
+  @@map("org_settings")
+}
+
+/// Configurable pick-list values (categories, injury types, hazard groups …).
+/// Lists are declared in src/lib/lookups.ts; values are tenant data.
+model LookupValue {
+  id             String   @id @default(cuid())
+  organizationId String
+  listKey        String
+  label          String
+  code           String?
+  notes          String?
+  color          String?
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  /// Seeded defaults; can be renamed or deactivated but not deleted.
+  isSystem       Boolean  @default(false)
+  parentId       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, listKey, label])
+  @@index([organizationId, listKey, isActive])
+  @@map("lookup_values")
+}
+
+/// Sequence counters per tenant (reference numbers such as INC-2026-0001).
+model Counter {
+  organizationId String
+  key            String
+  value          Int    @default(0)
+
+  @@id([organizationId, key])
+  @@map("counters")
+}
+
+// ─── Cross-cutting services ──────────────────────────────────────────────────
+
+/// IMMUTABLE. Protected by a database trigger – rows can only be inserted.
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  action         String
+  actorId        String?
+  actorName      String?
+  changes        Json?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  signature      String
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, entityType, entityId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  /// Free-form type key, e.g. "incident.assigned", "jobs.digest" (modules add their own).
+  type           String
+  title          String
+  body           String?
+  link           String?
+  entityType     String?
+  entityId       String?
+  /// Digest items: [{ title, link, entityType, entityId, dueDate? }]
+  items          Json?
+  /// Prevents duplicate deliveries (e.g. "job:<id>:<record>:<user>:<yyyy-mm-dd>").
+  dedupeKey      String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, dedupeKey])
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+enum UploadStatus {
+  PENDING
+  UPLOADED
+  CONSUMED
+}
+
+/// A server-issued upload slot. Files are uploaded directly to storage (or via the
+/// local driver endpoint) and then "consumed" by a domain operation.
+model UploadSession {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  purpose        String
+  storageDriver  String
+  storageKey     String       @unique
+  fileName       String
+  mimeType       String
+  maxBytes       Int
+  sizeBytes      Int?
+  checksum       String?
+  status         UploadStatus @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("upload_sessions")
+}
+
+enum AttachmentKind {
+  FILE
+  LINK
+}
+
+/// Shared evidence for any record (polymorphic: entityType + entityId).
+/// Access is decided by the owning module's resolver (src/server/modules/evidence).
+model Attachment {
+  id             String         @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  kind           AttachmentKind @default(FILE)
+  /// Description shown to users (required for links).
+  name           String
+  /// External http(s) reference when kind = LINK.
+  url            String?
+  fileName       String?
+  mimeType       String?
+  sizeBytes      Int?
+  storageDriver  String?
+  storageKey     String?
+  uploadedById   String
+  createdAt      DateTime       @default(now())
+  /// Removing an attachment detaches it; the stored object is kept for audit.
+  removedAt      DateTime?
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@index([organizationId, entityType, entityId])
+  @@map("attachments")
+}
+
+/// Discussion on any record (polymorphic).
+model Comment {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  authorId       String
+  body           String
+  /// Client-generated id for idempotent offline sync.
+  clientId       String?  @unique
+  createdAt      DateTime @default(now())
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([organizationId, entityType, entityId, createdAt])
+  @@map("comments")
+}
+
+/// Stable link between records in different modules (follow-up routing, provenance).
+/// The unique key makes routing idempotent: repeating "raise action" for the same
+/// source question returns the existing follow-up instead of creating another.
+model RecordLink {
+  id             String   @id @default(cuid())
+  organizationId String
+  sourceType     String
+  sourceId       String
+  /// Finer-grained source within the record, e.g. a question id ("" when none).
+  sourceKey      String   @default("")
+  /// e.g. "incident", "corrective-action", "risk-task".
+  kind           String
+  targetType     String
+  targetId       String
+  metadata       Json?
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, sourceType, sourceId, sourceKey, kind])
+  @@index([organizationId, targetType, targetId])
+  @@map("record_links")
+}
+
+/// Idempotency record for operations replayed from the offline outbox.
+model SyncOperation {
+  id             String   @id
+  organizationId String
+  userId         String
+  type           String
+  status         String
+  result         Json?
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@map("sync_operations")
+}

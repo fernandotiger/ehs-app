@@ -1,0 +1,200 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Document management
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum DocumentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AudienceType {
+  ALL_EMPLOYEES
+  ROLE
+  BUSINESS_UNIT
+  SITE
+  LOCATION
+  DEPARTMENT
+  USER
+}
+
+enum EscalationTarget {
+  NONE
+  MANAGER
+  HR
+}
+
+model DocumentCategory {
+  id             String     @id @default(cuid())
+  organizationId String
+  name           String
+  /// Configuration → Lists: notes, colour, order and (de)activation. Categories are never deleted.
+  notes          String?
+  color          String?
+  sortOrder      Int        @default(0)
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @default(now()) @updatedAt
+  documents      Document[]
+
+  @@unique([organizationId, name])
+  @@map("document_categories")
+}
+
+model Document {
+  id             String         @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?
+  referenceCode  String?
+  categoryId     String?
+  status         DocumentStatus @default(DRAFT)
+
+  currentVersionId String?           @unique
+  currentVersion   DocumentVersion?  @relation("DocumentCurrentVersion", fields: [currentVersionId], references: [id])
+  versions         DocumentVersion[] @relation("DocumentVersions")
+
+  requiresAcknowledgement Boolean          @default(false)
+  /// Acknowledgements of versions >= this number satisfy the requirement.
+  ackRequiredFromVersion  Int?
+  /// When acknowledgement was switched on for an already-published document (due dates start here).
+  ackEnabledAt            DateTime?
+  /// Days an assignee has to acknowledge before it is overdue.
+  ackDueDays              Int?
+  /// Days between automatic reminders.
+  reminderIntervalDays    Int?
+  /// Days after the due date before escalation.
+  escalationDays          Int?
+  escalationTarget        EscalationTarget @default(MANAGER)
+
+  reviewDate  DateTime?
+  publishedAt DateTime?
+  archivedAt  DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  category         DocumentCategory?         @relation(fields: [categoryId], references: [id])
+  createdBy        User                      @relation("DocumentCreatedBy", fields: [createdById], references: [id])
+  audiences        DocumentAudience[]
+  acknowledgements DocumentAcknowledgement[]
+  reminders        AcknowledgementReminder[]
+  /// At most one non-REPLACED survey (enforced by the service); replaced ones are kept read-only.
+  surveys          DocumentSurvey[]
+
+  @@unique([organizationId, referenceCode])
+  @@index([organizationId, status])
+  @@index([categoryId])
+  @@index([organizationId, title])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id                        String   @id @default(cuid())
+  organizationId            String
+  documentId                String
+  versionNumber             Int
+  fileName                  String
+  mimeType                  String
+  sizeBytes                 Int
+  storageDriver             String
+  storageKey                String
+  checksum                  String?
+  changeNote                String?
+  /// When true, employees must acknowledge this version again.
+  requiresReacknowledgement Boolean  @default(false)
+  uploadedById              String
+  createdAt                 DateTime @default(now())
+
+  document         Document                  @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Restrict)
+  currentOf        Document?                 @relation("DocumentCurrentVersion")
+  uploadedBy       User                      @relation(fields: [uploadedById], references: [id])
+  acknowledgements DocumentAcknowledgement[]
+
+  @@unique([documentId, versionNumber])
+  @@map("document_versions")
+}
+
+model DocumentAudience {
+  id             String       @id @default(cuid())
+  organizationId String
+  documentId     String
+  type           AudienceType
+  roleId         String?
+  businessUnitId String?
+  siteId         String?
+  locationId     String?
+  departmentId   String?
+  userId         String?
+  createdAt      DateTime     @default(now())
+
+  document     Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  role         Role?         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  businessUnit BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  site         Site?         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  location     Location?     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  department   Department?   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([organizationId, type])
+  @@index([roleId])
+  @@index([businessUnitId])
+  @@index([siteId])
+  @@index([locationId])
+  @@index([departmentId])
+  @@index([userId])
+  @@map("document_audiences")
+}
+
+/// IMMUTABLE. Protected by a database trigger (see prisma/sql) – rows can only be inserted.
+model DocumentAcknowledgement {
+  id                   String    @id @default(cuid())
+  organizationId       String
+  documentId           String
+  versionId            String
+  versionNumber        Int
+  userId               String
+  /// Snapshots so the audit trail stays meaningful if names change later.
+  documentTitle        String
+  userName             String
+  userEmail            String
+  statement            String
+  acknowledgedAt       DateTime  @default(now())
+  /// When the employee clicked while offline (synced later).
+  clientAcknowledgedAt DateTime?
+  source               String    @default("ONLINE")
+  ipAddress            String?
+  userAgent            String?
+  /// HMAC-SHA256 over the canonical record, for tamper evidence.
+  signature            String
+
+  document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, versionId])
+  @@index([documentId, versionNumber])
+  @@index([userId])
+  @@map("document_acknowledgements")
+}
+
+/// Tracks reminder / escalation state per assignee and version (mutable bookkeeping).
+model AcknowledgementReminder {
+  id             String    @id @default(cuid())
+  organizationId String
+  documentId     String
+  userId         String
+  versionNumber  Int
+  remindersSent  Int       @default(0)
+  lastRemindedAt DateTime?
+  escalatedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId, versionNumber])
+  @@map("acknowledgement_reminders")
+}

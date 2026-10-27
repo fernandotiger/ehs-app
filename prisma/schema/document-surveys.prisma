@@ -1,0 +1,137 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Document surveys – a few questions about a document, answered by its audience.
+// See docs/modules/document-surveys.md (privacy design: responses vs participation).
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum DocumentSurveyStatus {
+  ACTIVE
+  CLOSED
+  /// Superseded by "Replace survey" – kept read-only with its results.
+  REPLACED
+}
+
+enum DocumentSurveyQuestionType {
+  /// "Text answer"
+  TEXT
+  /// "One choice" (radio)
+  SINGLE
+  /// "Several choices" (checkbox)
+  MULTIPLE
+}
+
+model DocumentSurvey {
+  id             String               @id @default(cuid())
+  organizationId String
+  documentId     String
+  title          String
+  intro          String?
+  /// "Everyone must answer" – counts as action required / due work for the reader.
+  isMandatory    Boolean              @default(false)
+  /// "Answer within N days" (null = the documentSurvey setting default).
+  dueDays        Int?
+  /// When the survey last became mandatory (due dates start at the latest of publication and this).
+  mandatorySince DateTime?
+  /// "Let people answer anonymously".
+  allowAnonymous Boolean              @default(true)
+  status         DocumentSurveyStatus @default(ACTIVE)
+  /// Optimistic concurrency.
+  version        Int                  @default(1)
+  createdById    String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  closedAt       DateTime?
+  replacedAt     DateTime?
+
+  document       Document                      @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  createdBy      User                          @relation("DocumentSurveyCreatedBy", fields: [createdById], references: [id])
+  questions      DocumentSurveyQuestion[]
+  responses      DocumentSurveyResponse[]
+  participations DocumentSurveyParticipation[]
+
+  @@index([organizationId, status])
+  @@index([documentId, status])
+  @@map("document_surveys")
+}
+
+model DocumentSurveyQuestion {
+  id             String                     @id @default(cuid())
+  organizationId String
+  surveyId       String
+  position       Int
+  type           DocumentSurveyQuestionType
+  label          String
+  help           String?
+  required       Boolean                    @default(true)
+  /// Choice labels for SINGLE / MULTIPLE (2–20, unique); empty for TEXT.
+  options        String[]
+
+  survey  DocumentSurvey         @relation(fields: [surveyId], references: [id], onDelete: Restrict)
+  answers DocumentSurveyAnswer[]
+
+  @@unique([surveyId, position])
+  @@index([organizationId])
+  @@map("document_survey_questions")
+}
+
+/// IMMUTABLE (append-only trigger). One submitted questionnaire. Anonymous rows carry no user id,
+/// only the submission DATE, and a random (not time-ordered) uuid – they cannot be linked to a person.
+model DocumentSurveyResponse {
+  /// crypto.randomUUID() – never a cuid (cuids are time-ordered).
+  id                    String   @id @default(uuid())
+  organizationId        String
+  surveyId              String
+  /// Document version the reader answered on (a new version does not reset the survey). Null when the survey had no file.
+  documentVersionNumber Int?
+  /// Null when anonymous.
+  respondentId          String?
+  isAnonymous           Boolean  @default(false)
+  /// Date only (company-local day) – deliberately no time of day.
+  submittedOn           DateTime @db.Date
+
+  survey     DocumentSurvey         @relation(fields: [surveyId], references: [id], onDelete: Restrict)
+  respondent User?                  @relation(fields: [respondentId], references: [id], onDelete: Restrict)
+  answers    DocumentSurveyAnswer[]
+
+  /// A person has at most one named response per survey (NULLs – anonymous rows – are distinct).
+  @@unique([surveyId, respondentId])
+  @@index([surveyId, isAnonymous])
+  @@index([organizationId])
+  @@map("document_survey_responses")
+}
+
+/// IMMUTABLE (append-only trigger). One answer to one question; unanswered optional questions have no row.
+model DocumentSurveyAnswer {
+  /// crypto.randomUUID().
+  id             String   @id @default(uuid())
+  organizationId String
+  responseId     String
+  questionId     String
+  text           String?
+  choices        String[]
+
+  response DocumentSurveyResponse @relation(fields: [responseId], references: [id], onDelete: Restrict)
+  question DocumentSurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([responseId, questionId])
+  @@index([questionId])
+  @@index([organizationId])
+  @@map("document_survey_answers")
+}
+
+/// IMMUTABLE (append-only trigger). "Who took part" – deliberately NOT linked to the response and
+/// without an anonymous flag. The unique key makes double submits and offline replays idempotent.
+model DocumentSurveyParticipation {
+  id             String   @id @default(cuid())
+  organizationId String
+  surveyId       String
+  userId         String
+  answeredAt     DateTime @default(now())
+
+  survey DocumentSurvey @relation(fields: [surveyId], references: [id], onDelete: Restrict)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([surveyId, userId])
+  @@index([userId])
+  @@index([organizationId])
+  @@map("document_survey_participations")
+}

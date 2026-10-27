@@ -1,0 +1,19 @@
+// OleoQ EHS – Prisma schema (multi-file)
+//
+// One file per module: platform.prisma (tenancy, identity, organisation, RBAC and
+// shared services) plus <module>.prisma. Only standard PostgreSQL features are used,
+// so the same schema runs on Neon, AWS RDS / Aurora or a local Postgres.
+//
+// Multi-tenancy rule (see docs/PLATFORM.md): every model except Organization and the
+// Better Auth tables (Session, Account, Verification) has `organizationId String`.
+// Reads are scoped automatically by the tenant-aware Prisma client; creates must pass
+// organizationId explicitly (the client rejects a mismatch).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
