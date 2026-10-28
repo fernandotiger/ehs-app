@@ -245,18 +245,18 @@ function SettingsForm({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <ClipboardList className="size-4 text-brand" /> Document surveys
+              <ClipboardList className="size-4 text-brand" /> Employee inductions
             </CardTitle>
-            <CardDescription>Surveys that document owners add for their readers.</CardDescription>
+            <CardDescription>Inductions created under Documents → Create induction.</CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup>
               <NumberField
                 control={surveyForm.control}
                 name="defaultDueDays"
-                label="Answer within"
+                label="Complete within"
                 unit="days"
-                description="Default deadline when everyone must answer (can be changed per survey)."
+                description="Default deadline when everyone must complete an induction (can be changed per induction)."
               />
               <NumberField
                 control={surveyForm.control}

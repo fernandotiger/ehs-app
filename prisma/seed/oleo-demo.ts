@@ -16,7 +16,8 @@ export async function seedOleoDemo(prisma: PrismaClient): Promise<TenantSeed> {
     adminEmail: "admin@oleo-demo.example",
     adminName: "Morgan Kelly",
     password: DEMO_PASSWORD,
-    modules: ["documents", "incidents"],
+    // Actions: the actions migration switches the module on for existing tenants; a fresh seed matches it.
+    modules: ["documents", "incidents", "actions"],
     branding: { primary: "#1f6f5c", secondary: "#134438", tertiary: "#3fa58a" },
   });
   const seed: TenantSeed = {

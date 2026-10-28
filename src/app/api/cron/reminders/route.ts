@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/server/config/env";
+import { flagOverdueActions } from "@/server/modules/actions/overdue";
 import { runAcknowledgementReminders } from "@/server/modules/documents/acknowledgement-reminders";
 import { forEachTenant } from "@/server/tenancy/tenants";
 
@@ -23,9 +24,11 @@ export async function GET(request: NextRequest) {
   const documents = await forEachTenant(async (org) =>
     org.enabledModules.includes("documents") ? runAcknowledgementReminders(now) : { skipped: "module disabled" },
   );
+  // Standalone actions: one "is overdue" notice per action and due date (repeat reminders = Scheduled jobs).
+  const actions = await forEachTenant(async (org) => (org.enabledModules.includes("actions") ? flagOverdueActions(now, org.timeZone) : { skipped: "module disabled" }));
 
-  const failed = documents.filter((r) => r.error);
-  const summary = { ranAt: now.toISOString(), durationMs: Date.now() - started, tenants: documents.length, documents };
+  const failed = [...documents, ...actions].filter((r) => r.error);
+  const summary = { ranAt: now.toISOString(), durationMs: Date.now() - started, tenants: documents.length, documents, actions };
   if (failed.length) {
     console.error("[cron] reminders failed for some tenants", summary);
     return NextResponse.json(summary, { status: 500 });

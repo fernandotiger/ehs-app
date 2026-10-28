@@ -40,14 +40,14 @@ function StatusPill({ status }: { status: LibraryItem["status"] }) {
   );
 }
 
-/** Answers, "Everyone must answer" and closed state of the survey. */
+/** Answers, "Everyone must complete it" and closed state of the survey. */
 function SurveyFacts({ item }: { item: LibraryItem }) {
   const survey = item.survey;
   if (!survey) return null;
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       <StatusBadge tone="brand">{answersLabel(survey.participantCount)}</StatusBadge>
-      {survey.isMandatory && <StatusBadge tone="warning">Everyone must answer</StatusBadge>}
+      {survey.isMandatory && <StatusBadge tone="warning">Everyone must complete it</StatusBadge>}
       {survey.status === "CLOSED" && <StatusBadge>Closed</StatusBadge>}
     </span>
   );
@@ -57,7 +57,7 @@ function subtitle(item: LibraryItem): string {
   return [item.currentVersion ? "With a file" : "No file", item.requiresAcknowledgement ? "Acknowledgement required" : null].filter(Boolean).join(" · ");
 }
 
-/** Survey Library for managers and reporters – surveys are kept out of the Document Library. Rows open the survey page. */
+/** Employee Induction Library (menu "Induction Library") for managers and reporters – kept out of the Document Library. Rows open the induction page. */
 export function SurveyLibrary() {
   const router = useRouter();
   const { can } = useCurrentUser();
@@ -73,13 +73,13 @@ export function SurveyLibrary() {
   return (
     <>
       <PageBanner
-        title="Survey Library"
-        description="Create surveys, choose who should answer them and follow the answers."
+        title="Employee Induction Library"
+        description="Create inductions, choose who should complete them and follow the answers."
         actions={
           canManage ? (
             <Button asChild size="lg" className="bg-white text-brand-dark hover:bg-white/90">
               <Link href="/documents/surveys/new">
-                <ClipboardCheck /> Create survey
+                <ClipboardCheck /> Create induction
               </Link>
             </Button>
           ) : undefined
@@ -94,7 +94,7 @@ export function SurveyLibrary() {
               setSearch(v);
               setPage(1);
             }}
-            placeholder="Search surveys"
+            placeholder="Search inductions"
           />
           <FilterSelect
             value={status === "ACTIVE" ? undefined : status}
@@ -126,13 +126,13 @@ export function SurveyLibrary() {
       ) : library.data.items.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title="No surveys found"
-          description={filtered ? "Try a different search or filter." : "Create your first survey to get started."}
+          title="No inductions found"
+          description={filtered ? "Try a different search or filter." : "Create your first induction to get started."}
           action={
             canManage && !filtered ? (
               <Button asChild>
                 <Link href="/documents/surveys/new">
-                  <ClipboardCheck /> Create survey
+                  <ClipboardCheck /> Create induction
                 </Link>
               </Button>
             ) : undefined
@@ -167,7 +167,7 @@ export function SurveyLibrary() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="pl-4">Survey</TableHead>
+                  <TableHead className="pl-4">Induction</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Answers</TableHead>
                   <TableHead>Audience</TableHead>

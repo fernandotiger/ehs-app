@@ -26,7 +26,7 @@ function SurveySummaryCard({ doc, survey, canManage }: { doc: ManageDocumentDto;
   const run = async (action: "close" | "reopen") => {
     try {
       await openState.mutateAsync({ action, expectedVersion: survey.version });
-      toast.success(action === "close" ? "Survey closed – no more answers are accepted." : "Survey reopened.");
+      toast.success(action === "close" ? "Induction closed – no more answers are accepted." : "Induction reopened.");
     } catch (error) {
       toast.error(errorMessage(error));
     }
@@ -38,7 +38,7 @@ function SurveySummaryCard({ doc, survey, canManage }: { doc: ManageDocumentDto;
       <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
-            <ClipboardList className="size-4" /> Survey
+            <ClipboardList className="size-4" /> Employee Induction
           </p>
           <p className="mt-0.5 font-semibold leading-snug">{survey.title}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -52,7 +52,7 @@ function SurveySummaryCard({ doc, survey, canManage }: { doc: ManageDocumentDto;
               </StatusBadge>
             )}
             <StatusBadge tone={survey.isMandatory ? "warning" : "brand"}>
-              {survey.isMandatory ? `Everyone must answer · within ${survey.effectiveDueDays} days` : "Optional"}
+              {survey.isMandatory ? `Everyone must complete it · within ${survey.effectiveDueDays} days` : "Optional"}
             </StatusBadge>
             {survey.allowAnonymous && <StatusBadge>Anonymous answers allowed</StatusBadge>}
             <StatusBadge>{questionsLabel(survey.questions.length)}</StatusBadge>
@@ -65,17 +65,17 @@ function SurveySummaryCard({ doc, survey, canManage }: { doc: ManageDocumentDto;
               <ConfirmDialog
                 trigger={
                   <Button variant="outline" disabled={openState.isPending}>
-                    <Lock /> Close survey
+                    <Lock /> Close induction
                   </Button>
                 }
-                title="Close the survey?"
-                description="Nobody can answer any more. The answers so far are kept, and you can reopen the survey later."
-                confirmLabel="Close survey"
+                title="Close the induction?"
+                description="Nobody can complete it any more. The answers so far are kept, and you can reopen the induction later."
+                confirmLabel="Close induction"
                 onConfirm={() => run("close")}
               />
             ) : (
               <Button variant="outline" disabled={openState.isPending} onClick={() => void run("reopen")}>
-                <LockOpen /> Reopen survey
+                <LockOpen /> Reopen induction
               </Button>
             )}
           </div>
@@ -99,14 +99,14 @@ function PreviousSurveys({ documentId, data }: { documentId: string; data: Docum
             </p>
           </div>
           <Button variant="outline" onClick={() => setSelected(null)}>
-            <ArrowLeft /> All previous surveys
+            <ArrowLeft /> All previous inductions
           </Button>
         </div>
         <SurveyResultsView documentId={documentId} surveyId={survey.id} />
       </div>
     );
   }
-  if (!data.previous.length) return <EmptyState icon={History} title="No previous surveys" description="When you replace a survey, the old one and its answers are kept here." />;
+  if (!data.previous.length) return <EmptyState icon={History} title="No previous inductions" description="When you replace an induction, the old one and its answers are kept here." />;
   return (
     <Card className="gap-0 py-0">
       <ul className="divide-y">
@@ -128,7 +128,7 @@ function PreviousSurveys({ documentId, data }: { documentId: string; data: Docum
   );
 }
 
-/** Manage page → Survey tab: Results · Who has answered · Edit survey · Previous surveys. New surveys come from the Survey page. */
+/** Induction page → Induction tab: Results · Who has completed it · Edit induction · Previous inductions. New ones come from Create induction. */
 export function SurveyTab({ doc, canManage, canReport }: { doc: ManageDocumentDto; canManage: boolean; canReport: boolean }) {
   const query = useDocumentSurvey(doc.id);
   const [view, setView] = useState<View>(canReport ? "results" : "edit");
@@ -141,10 +141,10 @@ export function SurveyTab({ doc, canManage, canReport }: { doc: ManageDocumentDt
   if (!survey) {
     return (
       <div className="space-y-6">
-        <EmptyState icon={ClipboardList} title="No survey" description="This document has no survey. New surveys are created on the Survey page." />
+        <EmptyState icon={ClipboardList} title="No induction" description="This document has no induction questions. New inductions are created on the Create induction page." />
         {data.previous.length > 0 && (
           <div className="space-y-2">
-            <h3 className="font-semibold">Previous surveys</h3>
+            <h3 className="font-semibold">Previous inductions</h3>
             <PreviousSurveys documentId={doc.id} data={data} />
           </div>
         )}
@@ -154,9 +154,9 @@ export function SurveyTab({ doc, canManage, canReport }: { doc: ManageDocumentDt
 
   const views: { value: View; label: string; icon: typeof Users; show: boolean }[] = [
     { value: "results", label: "Results", icon: BarChart3, show: canReport },
-    { value: "people", label: "Who has answered", icon: Users, show: canReport },
-    { value: "edit", label: "Edit survey", icon: PencilLine, show: canManage && doc.status !== "ARCHIVED" },
-    { value: "previous", label: `Previous surveys${data.previous.length ? ` (${data.previous.length})` : ""}`, icon: History, show: canReport && data.previous.length > 0 },
+    { value: "people", label: "Who has completed it", icon: Users, show: canReport },
+    { value: "edit", label: "Edit induction", icon: PencilLine, show: canManage && doc.status !== "ARCHIVED" },
+    { value: "previous", label: `Previous inductions${data.previous.length ? ` (${data.previous.length})` : ""}`, icon: History, show: canReport && data.previous.length > 0 },
   ];
   const visible = views.filter((v) => v.show);
   const current = visible.some((v) => v.value === view) ? view : (visible[0]?.value ?? "results");

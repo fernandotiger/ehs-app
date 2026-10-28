@@ -269,7 +269,7 @@ function QuestionCard({
 }
 
 /**
- * Survey builder: title, intro, "Everyone must answer" (+ "Answer within N days"),
+ * Survey builder: title, intro, "Everyone must complete it" (+ "Complete within N days"),
  * "Let people answer anonymously", numbered question cards and a live Preview.
  * Controlled: `onChange` receives an updater so undo toasts always apply to the latest draft.
  */
@@ -297,12 +297,12 @@ export function SurveyBuilder({
     <div className="space-y-5">
       <div className="grid gap-4">
         <Field data-invalid={Boolean(errors.title)}>
-          <FieldLabel htmlFor={`${idPrefix}-title`}>Survey title</FieldLabel>
+          <FieldLabel htmlFor={`${idPrefix}-title`}>Induction title</FieldLabel>
           <Input
             id={`${idPrefix}-title`}
             value={draft.title}
             maxLength={SURVEY_LIMITS.titleMax}
-            placeholder="e.g. Manual handling – understanding check"
+            placeholder="e.g. Manual handling induction"
             className="h-10"
             aria-invalid={Boolean(errors.title)}
             onChange={(e) => set("title", e.target.value)}
@@ -318,7 +318,7 @@ export function SurveyBuilder({
             value={draft.intro}
             maxLength={SURVEY_LIMITS.introMax}
             rows={2}
-            placeholder="Tell readers why you are asking, e.g. “Help us check the new rules are clear.”"
+            placeholder="Tell people what this induction covers, e.g. “Read the site rules, then answer a few questions.”"
             onChange={(e) => set("intro", e.target.value)}
           />
           <Err errors={errors} path="intro" />
@@ -329,14 +329,14 @@ export function SurveyBuilder({
         <div className="space-y-3 rounded-xl border p-3">
           <Field orientation="horizontal">
             <FieldContent>
-              <FieldLabel htmlFor={`${idPrefix}-mandatory`}>Everyone must answer</FieldLabel>
-              <FieldDescription>Shows as “Action required” for readers until they answer.</FieldDescription>
+              <FieldLabel htmlFor={`${idPrefix}-mandatory`}>Everyone must complete it</FieldLabel>
+              <FieldDescription>Shows as “Action required” for people until they complete it.</FieldDescription>
             </FieldContent>
             <Switch id={`${idPrefix}-mandatory`} checked={draft.isMandatory} onCheckedChange={(v) => set("isMandatory", v)} />
           </Field>
           {draft.isMandatory && (
             <Field data-invalid={Boolean(errors.dueDays)}>
-              <FieldLabel htmlFor={`${idPrefix}-due`}>Answer within</FieldLabel>
+              <FieldLabel htmlFor={`${idPrefix}-due`}>Complete within</FieldLabel>
               <div className="relative max-w-40">
                 <Input
                   id={`${idPrefix}-due`}
@@ -351,7 +351,7 @@ export function SurveyBuilder({
                 />
                 <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">days</span>
               </div>
-              <FieldDescription>Counted from when the document is published.</FieldDescription>
+              <FieldDescription>Counted from when the induction is published.</FieldDescription>
               <Err errors={errors} path="dueDays" />
             </Field>
           )}

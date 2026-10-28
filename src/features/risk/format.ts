@@ -50,6 +50,7 @@ export const RISK_HISTORY_LABELS: Record<string, string> = {
   RISK_RESCORED: "Rescored by a completed task",
   RISK_RELATED_LINKED: "Related assessment added",
   RISK_RELATED_UNLINKED: "Related assessment removed",
+  RISK_ASSESSMENT_PDF_CREATED: "PDF created to save as a document",
   RISK_TASK_ADDED: "Task added",
   EVIDENCE_ADDED: "Evidence added",
   EVIDENCE_REMOVED: "Evidence removed",

@@ -82,9 +82,9 @@ export interface SurveyEditContext {
  * surveys are read-only.
  */
 export function surveyEditProblem(ctx: SurveyEditContext): string | null {
-  if (ctx.status === "REPLACED") return "This survey has been replaced and can no longer be changed.";
+  if (ctx.status === "REPLACED") return "This induction has been replaced and can no longer be changed.";
   if (ctx.questionsChanged && ctx.responseCount > 0) {
-    return "The questions can't be changed because people have already answered. Use “Replace survey” to ask new questions – the current answers are kept.";
+    return "The questions can't be changed because people have already answered. Use “Replace induction” to ask new questions – the current answers are kept.";
   }
   if (ctx.allowAnonymousBefore && !ctx.allowAnonymousAfter && ctx.anonymousCount > 0) {
     return "Anonymous answers have already been given, so anonymous answering can't be switched off.";
@@ -94,9 +94,9 @@ export function surveyEditProblem(ctx: SurveyEditContext): string | null {
 
 /** Status transitions for close / reopen. */
 export function surveyTransitionProblem(status: SurveyStatusValue, action: "close" | "reopen"): string | null {
-  if (status === "REPLACED") return "This survey has been replaced and can no longer be changed.";
-  if (action === "close" && status !== "ACTIVE") return "This survey is already closed.";
-  if (action === "reopen" && status !== "CLOSED") return "This survey is already open.";
+  if (status === "REPLACED") return "This induction has been replaced and can no longer be changed.";
+  if (action === "close" && status !== "ACTIVE") return "This induction is already closed.";
+  if (action === "reopen" && status !== "CLOSED") return "This induction is already open.";
   return null;
 }
 
@@ -115,12 +115,12 @@ export interface AnswerGuardInput {
 
 /** Why the reader cannot answer right now (null = they can). Same evidence rule as acknowledging. */
 export function answerBlockReason(input: AnswerGuardInput): string | null {
-  if (input.documentStatus !== "PUBLISHED") return "This document is not published.";
-  if (input.surveyStatus === "REPLACED") return "This survey has been replaced by a new one. Please reload the page and answer the new survey.";
-  if (input.surveyStatus !== "ACTIVE") return "This survey is closed.";
-  if (!input.assigned) return "This survey is for the people this document is assigned to.";
-  if (!input.opened) return "Please open the document before answering the survey.";
-  if (input.anonymousRequested && !input.allowAnonymous) return "This survey does not allow anonymous answers.";
+  if (input.documentStatus !== "PUBLISHED") return "This induction is not published.";
+  if (input.surveyStatus === "REPLACED") return "This induction has been replaced by a new one. Please reload the page and complete the new one.";
+  if (input.surveyStatus !== "ACTIVE") return "This induction is closed.";
+  if (!input.assigned) return "This induction is for the people it is assigned to.";
+  if (!input.opened) return "Please open the file before completing the induction.";
+  if (input.anonymousRequested && !input.allowAnonymous) return "This induction does not allow anonymous answers.";
   return null;
 }
 
@@ -148,7 +148,7 @@ export function validateAnswers(
   const given = new Map<string, SurveyAnswerItemInput>();
   for (const a of answers) {
     if (!byId.has(a.questionId)) {
-      issues.push({ questionId: a.questionId, message: "This question is not part of the survey any more. Please reload the page." });
+      issues.push({ questionId: a.questionId, message: "This question is not part of the induction any more. Please reload the page." });
       continue;
     }
     if (given.has(a.questionId)) {

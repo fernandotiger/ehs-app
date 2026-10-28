@@ -57,7 +57,7 @@ export function ActionRegister() {
     <>
       <PageHeader
         title="Actions"
-        description="Corrective and preventive actions and their tasks – who does what, by when, and whether it worked."
+        description="Actions and their tasks – who does what, by when, and whether it worked."
         actions={
           <>
             <Button asChild variant="outline">
@@ -67,7 +67,7 @@ export function ActionRegister() {
             </Button>
             {can(PERMISSIONS.INCIDENT_ACTION_CREATE) && (
               <Button onClick={() => setCreating(true)}>
-                <Plus /> Preventive action
+                <Plus /> Add action
               </Button>
             )}
           </>
@@ -99,7 +99,7 @@ export function ActionRegister() {
             options={[{ id: "mine", name: view === "tasks" ? "My tasks" : "Mine (owner or reviewer)" }, { id: "overdue", name: "Overdue" }]}
             allLabel="Everyone's"
           />
-          {view === "actions" && <FilterSelect value={filters.kind} onChange={(v) => set({ kind: v as ActionListParams["kind"] })} options={ACTION_KINDS.map((k) => ({ id: k, name: ACTION_KIND_LABELS[k] }))} allLabel="Corrective and preventive" />}
+          {view === "actions" && <FilterSelect value={filters.kind} onChange={(v) => set({ kind: v as ActionListParams["kind"] })} options={ACTION_KINDS.map((k) => ({ id: k, name: ACTION_KIND_LABELS[k] }))} allLabel="All kinds" />}
         </div>
       </Card>
 
@@ -201,7 +201,7 @@ export function ActionRegister() {
       <ActionFormSheet
         open={creating}
         onOpenChange={setCreating}
-        config={{ mode: "create", incidentIds: [], kind: "PREVENTIVE", title: "Add a preventive action" }}
+        config={{ mode: "create", incidentIds: [], kind: "PREVENTIVE", title: "Add an action" }}
         onSaved={(id) => router.push(`/incidents/actions/${id}`)}
       />
     </>

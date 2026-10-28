@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 /**
- * Document survey settings (Configuration → System settings → Document surveys).
+ * Document survey settings (Configuration → System settings → Employee inductions).
  * - anonymityThreshold: anonymous answers stay out of every result, chart and export until at
  *   least this many anonymous answers exist (k-anonymity – stops identification by elimination).
- * - defaultDueDays: the "Answer within" default for mandatory surveys.
+ * - defaultDueDays: the "Complete within" default for mandatory inductions.
  */
 export const documentSurveySettingsSchema = z.object({
   anonymityThreshold: z.coerce.number({ error: "Enter a number from 1 to 10" }).int("Enter a whole number").min(1, "Use a number from 1 to 10").max(10, "Use a number from 1 to 10"),

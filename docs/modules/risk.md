@@ -53,7 +53,7 @@ Confidential flag: set and shown only for company-wide `risk.configure` (baselin
   `TASK_RESCORE` revision with task reference + audit on the assessment). `strategy.service.ts`, `reports.service.ts`,
   `assessment-query.service.ts` (list/detail/history/export/overview/scan), `matrix.service.ts`, `due-work.ts`.
 - Routes: `GET/POST /assessments`, `/assessments/export` (CSV), `GET/PUT /assessments/:id`,
-  `POST /:id/{submit,approve,revise,archive,restore,clone,review,related}`, `DELETE /:id/related/:otherId`,
+  `POST /:id/{submit,approve,revise,archive,restore,clone,review,related,document-pdf}`, `DELETE /:id/related/:otherId`,
   `GET /:id/history`, `GET/POST /tasks`, `GET/PUT /tasks/:id`, `POST /tasks/:id/{start,complete}`,
   `GET/POST /{objectives,targets,programmes}`, `GET/PUT /…/:id`, `GET /reports/:key`, `GET /scan?qr=`, `GET /overview`,
   `GET /matrix`, `GET /matrix/:formId`. Gates → 422 `details.blockers`; stale `expectedVersion` → 409 `STALE_VERSION`.
@@ -68,7 +68,7 @@ Targets · Programmes; drill-down `/risk/strategy/{objectives,targets,programmes
 (+ `/risk/tasks/[id]`), Reports `/risk/reports`. Wizard `/risk/assessments/new` and `/[id]/edit` (Scope → Hazards/Aspects
 → Review & decide; live score chips; 5×5/3×3 pickers, FMEA sliders by group, checklist Yes/No/N/A; Save draft · Submit
 for approval · Save & approve when permitted). Detail: one primary step (Submit / Approve / Record review / Start
-revision / Restore), More menu (edit, revise, approve, QR label, clone, archive), stepper, tabs Overview (scope, heat-map
+revision / Restore), More menu (edit, revise, approve, print, save as document (PDF), QR label, clone, archive), stepper, tabs Overview (scope, heat-map
 or ranked list, related, linked records) · Scorecard · Tasks · History & reviews (snapshots, reviews, audit) · Evidence ·
 Comments. `?review=1` opens the periodic review. QR label dialog (`qrcode-generator` 2.0.4): SVG/PNG download, print,
 test link. `/scan` (behind sign-in): label link, typed reference, camera / image where `BarcodeDetector` exists.
@@ -103,6 +103,51 @@ managed on the Risk matrix page – these lists are not in Configuration → Lis
   8 aspects for the FMEA Environment form (both include the names the demo assessments use); the Checklist form has no
   list (its rows are checklist items), so it shows the typed field. Applied to the LOCAL DB on 28 Oct 2026, not Neon.
 
+## Print and Save as document (28 Oct 2026)
+Product owner's request: a Print button and a button that turns the assessment into a PDF and opens the Upload document
+page with that PDF already attached, so the user only types the remaining document details.
+
+- **Where:** assessment detail → More menu (⋯): **Print** (everyone who can open the assessment) and **Save as document
+  (PDF)** (only when the Documents module is on and the user holds `document.manage`; the server re-checks).
+- **Shared content:** `src/lib/risk/assessment-print.ts` (pure) builds the rows both outputs use – header (reference, status,
+  revision, method · domain, overall score + band), scope (where, responsible person, approver, participants, review date,
+  form + rules, activity / item, operation mode, work area, people exposed / impact context, description, confidential flag
+  when the viewer may see it), hazards / aspects (activity, consequence, controls, recommendations, rating values, score +
+  band, justification), custom form questions (system questions left out, person answers as names, headings kept),
+  approval summary, score history (revisions) and periodic reviews, "Printed on <date> by <name>".
+- **Print** – `/risk/assessments/[id]/print` (thin page, `guardModulePage("risk")`, `AssessmentPrint` in
+  `features/risk/components/assessments/assessment-print.tsx`): reads the normal detail API (404 outside scope), opens the
+  browser print dialog once loaded, toolbar (Back · Print) has `data-print-hide`; the app chrome is hidden by the existing
+  print rules in `globals.css`. A4 via `@page`; hazards are a table on tablet/desktop/paper (header repeats per printed page)
+  and cards at phone width.
+- **PDF** – `src/server/modules/risk/assessment-pdf.ts` with **pdf-lib 1.17.1** (pure JS, runs on Vercel): A4 portrait,
+  Helvetica, wrapped text, page breaks, hazards table with the header repeated on every page (very tall rows split across
+  pages), score box coloured by band, footer "RA-… · title — Printed on … by … · Page n of N". Standard fonts only know
+  WinAnsi, so every text goes through `sanitizePdfText` (→ "->", ≥ ">=", Ł → L, ő → o, emoji / CJK → "?", invisible
+  characters dropped). Tests: `assessment-pdf.test.ts` (bytes start with `%PDF`, long text → many pages, unicode never
+  crashes, helpers).
+- **Route** – `POST /api/risk/assessments/:id/document-pdf` (`apiHandler({ module: "risk", permission: document.manage })`
+  → `assessmentDocumentService.createPdfUpload`): Documents module off → 404; no `document.manage` → 403; assessment the
+  user cannot see → 404 (same `detail` query as the page). Renders the PDF, stores it with
+  `uploadService.createFromBytes(user, { purpose: "document-version", … })` (new: creates the upload session, writes to
+  storage under `org/<organizationId>/documents/yyyy/mm/<uploadId>/<file>`, marks it UPLOADED with size + sha256, respects
+  the document size limit; the storage key never leaves the server) and audits `RISK_ASSESSMENT_PDF_CREATED` on the
+  assessment in the same transaction that marks the upload UPLOADED (changes: file name + revision; metadata: upload id,
+  size; History label "PDF created to save as a document"). Response `{ uploadId, fileName, sizeBytes, title, description }`
+  – title "RA-2026-0001 – Forklift operations", description "Risk assessment RA-2026-0001, revision 2, critical risk.
+  Exported 28 Oct 2026."; file name ASCII "RA-2026-0001 Forklift operations rev 2.pdf".
+- **Hand-off to Upload document** – the menu item navigates to `/documents/manage/new?uploadId=…&title=…&description=…`
+  (description ≤ 300 characters). The page passes them to `NewDocumentForm` as `prefill`; the form asks the new owner-only
+  `GET /api/uploads/:id` (`uploadService.summary`: name, type, size; 404 when used, expired, still pending or someone
+  else's) and shows the file as attached (name + size, × to remove it and pick another file). Title and description are
+  pre-filled, editable suggestions. On Save as draft / Publish the existing create flow consumes the prepared `uploadId`
+  (no second upload). A file that is no longer available shows "The prepared file is no longer available – choose the file
+  to upload." with the normal file picker.
+- **Deviations / decisions:** generated uploads stay usable for 24 hours (browser uploads: 1 hour – only the summary uses
+  the expiry; `consume` never did); each click creates a new PDF upload (unused ones are left like abandoned browser
+  uploads – no clean-up job exists yet); the saved document has no link back to the assessment; the PDF shows the current
+  state only (revision snapshots are listed with their scores, not their hazard tables); no company logo in the PDF.
+
 ## Seed (`prisma/seed/risk.ts`, idempotent – skipped when the tenant has assessments)
 Northstar: 8 assessments using the published Risk forms – Approved 5×5 (forklift, 20 Critical; ladder RA-…-0002, rev 2
 via a task rescore 15 → 10, review overdue), Awaiting approval, Draft (incomplete), FMEA environment (72 Medium, review
@@ -136,3 +181,9 @@ some overdue); one related link. Counters for `risk-assessment` / `risk-task` ar
 - Should Approved-assessment reminders use the form's advance-notice days (Home/Overview "reviews due" does) or only
   the scheduled job's own upcoming window (current behaviour of jobs)?
 - Smoke tests left data in Northstar: RA-2026-0009…0013 (smoke/UI drafts, revised/cloned/archived-restored), RT-2026-0008…0011.
+- Print / Save as document (28 Oct 2026): should the saved document link back to the assessment (and the assessment list
+  the documents made from it)? Should approving a revision re-export and publish a new document version automatically?
+  Which fields belong in the PDF (e.g. leave out the activity description, add each revision's hazard snapshot, the
+  heat-map, open tasks, evidence file names, the company logo from Branding)? Should Draft / Awaiting-approval assessments
+  be exportable at all, or carry a "DRAFT" watermark? Should "Save as document" pre-select an audience (e.g. the
+  assessment's department) or a document category?

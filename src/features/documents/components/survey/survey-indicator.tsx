@@ -6,7 +6,7 @@ export function answersLabel(count: number): string {
   return `${count.toLocaleString()} ${count === 1 ? "answer" : "answers"}`;
 }
 
-/** Small "Survey · 12 answers" marker on library rows and the manage header. */
+/** Small "Induction · 12 answers" marker on library rows and the manage header. */
 export function SurveyIndicator({ survey, className }: { survey: SurveySummaryDto | null | undefined; className?: string }) {
   if (!survey) return null;
   return (
@@ -18,7 +18,7 @@ export function SurveyIndicator({ survey, className }: { survey: SurveySummaryDt
       )}
     >
       <ClipboardList className="size-3" />
-      {survey.status === "ACTIVE" ? "Survey" : "Survey closed"} · {answersLabel(survey.participantCount)}
+      {survey.status === "ACTIVE" ? "Induction" : "Induction closed"} · {answersLabel(survey.participantCount)}
     </span>
   );
 }

@@ -3,7 +3,7 @@
  * Scheduled jobs, Configuration) are always available and are not listed here.
  * Organization.enabledModules holds the keys enabled for a tenant.
  */
-export const MODULE_KEYS = ["documents", "incidents", "risk", "audits", "inspections", "law"] as const;
+export const MODULE_KEYS = ["documents", "incidents", "risk", "actions", "audits", "inspections", "law"] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
@@ -37,6 +37,13 @@ export const MODULES: Record<ModuleKey, ModuleDescriptor> = {
     description: "Risk assessments, scoring, objectives, programmes, tasks and periodic reviews.",
     basePath: "/risk",
     entityTypes: ["RiskAssessment", "RiskTask"],
+  },
+  actions: {
+    key: "actions",
+    name: "Actions",
+    description: "Standalone actions not linked to an incident or a risk: who does what, by when.",
+    basePath: "/actions",
+    entityTypes: ["Action"],
   },
   audits: {
     key: "audits",

@@ -6,7 +6,13 @@ import { DOCUMENT_PERMISSIONS } from "@/server/modules/documents/document-permis
 
 export const metadata: Metadata = { title: "Upload document" };
 
-export default async function NewDocumentPage() {
+const one = (value: string | string[] | undefined) => (typeof value === "string" && value.trim() ? value : undefined);
+
+export default async function NewDocumentPage(props: PageProps<"/documents/manage/new">) {
   if (!(await guardModulePage("documents", ...DOCUMENT_PERMISSIONS.MANAGE))) return <AccessDenied />;
-  return <NewDocumentForm />;
+  // ?uploadId=…&title=…&description=… – a file prepared elsewhere (e.g. Risk → Save as document (PDF)).
+  const query = await props.searchParams;
+  const uploadId = one(query.uploadId);
+  const prefill = uploadId ? { uploadId, title: one(query.title)?.slice(0, 200), description: one(query.description)?.slice(0, 4000) } : undefined;
+  return <NewDocumentForm prefill={prefill} />;
 }

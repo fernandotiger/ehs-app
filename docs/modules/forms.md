@@ -24,7 +24,8 @@ repeatedDefaultKeys(fields, "REPORT" | "INVESTIGATION")   // Incident: hide repe
 - Snapshot = `{ formId, versionId, version, name, module, purpose, siteId, fields (filtered for the site), settings,
   capturedAt }`. Republishing never changes it. Required only on submit; headings/scores never required; questions
   restricted to other sites are not in the snapshot.
-- Module/purpose keys: risk → `5x5 | 3x3 | FMEA | CHECKLIST`; incidents → `REPORT | INVESTIGATION`; audits →
+- Module/purpose keys: risk → `5x5 | 3x3 | FMEA | CHECKLIST`; incidents → `REPORT | INVESTIGATION`; actions → `ACTION`
+  ("Extra action questions" on Create Action, no mandatory questions – 28 Oct 2026, `docs/modules/actions.md`); audits →
   `STANDARD | SCORABLE | EXPRESS`, inspections → `INSPECTION`, law → `LAW` (later, `available: false`).
 - Mandatory questions have fixed keys (`systemQuestions()` in `src/lib/forms/catalog.ts`): Incident Report
   `incidentTitle, occurredAt, site, whatHappened`; Investigation `investigationFindings, rootCauseAnalysis`; Risk

@@ -17,6 +17,7 @@ export const DUE_WORK_KINDS = [
   "law.evaluation",
   "document.acknowledgement",
   "document.survey",
+  "action",
 ] as const;
 export type DueWorkKind = (typeof DUE_WORK_KINDS)[number];
 
@@ -37,7 +38,8 @@ export const DUE_WORK_KIND_INFO: Record<DueWorkKind, DueWorkKindDescriptor> = {
   inspection: { kind: "inspection", label: "Inspections", module: "inspections", later: true },
   "law.evaluation": { kind: "law.evaluation", label: "Law evaluation reviews", module: "law", later: true },
   "document.acknowledgement": { kind: "document.acknowledgement", label: "Document acknowledgements", module: "documents" },
-  "document.survey": { kind: "document.survey", label: "Document surveys", module: "documents" },
+  action: { kind: "action", label: "Actions", module: "actions" },
+  "document.survey": { kind: "document.survey", label: "Employee inductions", module: "documents" },
 };
 
 export const JOB_KINDS = ["OVERDUE", "UPCOMING", "DIGEST"] as const;

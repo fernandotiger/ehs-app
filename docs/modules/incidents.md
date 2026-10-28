@@ -183,6 +183,14 @@ restored; confidential default, investigator count and an untouched target date 
 title) and offline queueing are unchanged. The wizard now renders the loading placeholder while the page hydrates – a
 device-cached setup used to make React report a hydration mismatch (#418) on this page.
 
+Action wording (product owner's request, 28 Oct 2026 – "remove the word preventive, leave just action"): the Actions
+register button is **Add action** (was "Preventive action"), its sheet is titled **Add an action**, the register and the
+incident's Actions tab descriptions say "Actions …" instead of "Corrective and preventive actions …", and the kind filter
+reads "All kinds". The Corrective / Preventive **kind** is kept (data, filters, reports): the register's sheet no longer
+asks for it (without incidents only Preventive is allowed, so it is set silently); the sheet opened from an incident still
+offers Corrective / Preventive. Reports → Trends & prevention keeps "Create a preventive action" (that report creates
+exactly that). Open question 18 in HANDOFF.
+
 ## Demo incident types (Port of Cork sheet, 27 Oct 2026)
 Source: `Port of Cork Incident Module Templates 19022021.xlsx` (repo root, NOT committed), tabs "Incident Fields
 As-Built" and "Investigation Fields As-Built" only. Each column is one type (its name is the red entry of the type
@@ -266,6 +274,10 @@ actions (tasks, preventive trend action). Oleo Demo: 2 incidents. Seeded inciden
 - Reporters without `incident.view` currently see the investigation and actions of their own report, and assigned
   investigators see confidential details. Confirm both with the product owner.
 - Reopening an investigation does not reopen linked actions; is that enough for "closure unavailable until complete"?
+- Action wording (28 Oct 2026): should the Corrective / Preventive kind be hidden everywhere (e.g. always Corrective when
+  raised from an incident, Preventive otherwise) and dropped from filters/badges/CSV? Should "Trends & prevention" keep
+  saying "preventive action"? The sidebar now also has a standalone **Actions** section (`docs/modules/actions.md`) –
+  rename this module's "Actions" item to "Incident actions"?
 - Smoke tests left data in Northstar: INC-2026-0013 (closed), INC-2026-0014 (draft from a smoke inspection source),
   INC-2026-0015 (browser draft), ACT-2026-0008…0010.
 - Incident-type smoke test (27 Oct 2026, **local DB only**): types "Chemical exposure (COSHH)" (key

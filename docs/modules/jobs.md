@@ -20,7 +20,8 @@ ownerId, placement: { businessUnitId, siteId, locationId, departmentId }, review
   date, non-Completed tasks, non-Closed incidents with an unfinished investigation …, per the spec).
 - Kinds (`src/lib/jobs.ts`): `risk.review | risk.task | incident.investigation | incident.action` (registered by
   the Incident and Risk modules) · `audit | inspection | law.evaluation` (declared, **later**) · `document.acknowledgement`
-  (registered now: My work and an optional job target).
+  (registered now: My work and an optional job target) · `action` (standalone actions, 28 Oct 2026 – see `actions.md`;
+  the daily `/api/cron/reminders` also sends a one-off overdue notice per action and due date).
 
 ## Data
 `prisma/schema/jobs.prisma`: `ScheduledJob` (kind OVERDUE|UPCOMING|DIGEST, targets, scope type+id, frequency

@@ -35,7 +35,7 @@ export function SurveyManage({ id }: { id: string }) {
   if (query.isPending) return <LoadingRows rows={6} className="[&>*:first-child]:h-20 [&>*]:h-24" />;
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.status === 404) {
-      return <EmptyState icon={FileSearch} title="Survey not found" className="mt-6" />;
+      return <EmptyState icon={FileSearch} title="Induction not found" className="mt-6" />;
     }
     return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
@@ -48,7 +48,7 @@ export function SurveyManage({ id }: { id: string }) {
       <PageHeader
         title={doc.title}
         backHref="/documents/surveys/library"
-        backLabel="Survey Library"
+        backLabel="Induction Library"
         meta={
           <>
             <StatusBadge tone={status.tone} dot>
@@ -66,8 +66,8 @@ export function SurveyManage({ id }: { id: string }) {
         <div className="-mx-3 overflow-x-auto overflow-y-hidden px-3 md:mx-0 md:px-0">
           <TabsList className="h-9">
             <TabsTrigger value="survey" className="px-3">
-              Survey
-              <span className="ml-1 rounded-full bg-brand-soft px-1.5 text-[0.7rem] font-semibold text-brand tabular-nums" title="Answers">
+              Induction
+              <span className="ml-1 rounded-full bg-brand-soft px-1.5 text-[0.7rem] font-semibold text-brand tabular-nums" title="Completed">
                 {doc.survey?.participantCount ?? 0}
               </span>
             </TabsTrigger>

@@ -19,6 +19,7 @@ import type {
   TaskUpdateInput,
 } from "@/lib/validation/risk";
 import type { FormDetailDto } from "@/server/modules/forms/form.service";
+import type { AssessmentPdfUploadDto } from "@/server/modules/risk/assessment-document.service";
 import type { AssessmentWriteResult } from "@/server/modules/risk/assessment.service";
 import type {
   AssessmentDetailDto,
@@ -40,7 +41,7 @@ import type {
 
 export type * from "@/server/modules/risk/risk.dto";
 export type { AssessmentNextStep, LifecycleStage } from "@/server/modules/risk/workflow";
-export type { AssessmentWriteResult };
+export type { AssessmentPdfUploadDto, AssessmentWriteResult };
 
 /** Risk module – query keys and React Query hooks. */
 
@@ -239,6 +240,12 @@ export function useAssessmentCommand(id: string) {
     mutationFn: ({ command, ...body }: AssessmentCommand) => api.post<AssessmentWriteResult | undefined>(`/api/risk/assessments/${id}/${command}`, body),
     onSuccess: invalidate,
   });
+}
+
+/** "Save as document (PDF)": the server stores the PDF as the user's document upload. */
+export function useAssessmentPdfUpload(id: string) {
+  const invalidate = useInvalidate();
+  return useMutation({ mutationFn: () => api.post<AssessmentPdfUploadDto>(`/api/risk/assessments/${id}/document-pdf`), onSuccess: invalidate });
 }
 
 export function useUnlinkRelated(id: string) {

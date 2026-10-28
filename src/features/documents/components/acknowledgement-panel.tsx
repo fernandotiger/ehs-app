@@ -33,7 +33,7 @@ export function AcknowledgementPanel({ doc, pendingSync, openedLocally }: { doc:
   const checkboxId = useId();
   const acknowledge = useAcknowledgeDocument(doc);
   const version = doc.currentVersion;
-  // With a survey to answer the checklist becomes: 1 Open · 2 Confirm · 3 Answer survey.
+  // With a survey to answer the checklist becomes: 1 Open · 2 Confirm · 3 Complete the induction.
   const survey = useMySurvey(doc.id).data?.survey;
   const surveyStep = survey && survey.assigned && (survey.status === "ACTIVE" || survey.answered) ? survey : null;
 
@@ -119,7 +119,7 @@ export function AcknowledgementPanel({ doc, pendingSync, openedLocally }: { doc:
         <ol className="space-y-2">
           <Step done={opened}>Open and read the document</Step>
           <Step done={checked}>Confirm you have read and understood it</Step>
-          {surveyStep && <Step done={Boolean(surveyStep.answered)}>Answer the survey{surveyStep.isMandatory ? "" : " (optional)"}</Step>}
+          {surveyStep && <Step done={Boolean(surveyStep.answered)}>Complete the induction{surveyStep.isMandatory ? "" : " (optional)"}</Step>}
         </ol>
 
         <label

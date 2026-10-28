@@ -50,6 +50,13 @@ export const FORM_MODULES: Record<string, FormModuleDescriptor> = {
     ],
     available: true,
   },
+  actions: {
+    key: "actions",
+    label: "Action",
+    purposeLabel: "Purpose",
+    purposes: [{ key: "ACTION", label: "Extra action questions", description: "Questions shown on Create Action, below the standard fields." }],
+    available: true,
+  },
   audits: {
     key: "audits",
     label: "Audit",
@@ -94,7 +101,7 @@ export function purposeLabel(module: string, purpose: string): string {
   return formModule(module)?.purposes.find((p) => p.key === purpose)?.label ?? purpose;
 }
 
-/** Modules that can own new forms now (Risk and Incident in this phase). */
+/** Modules that can own new forms now (Risk, Incident and Actions). */
 export function creatableModules(): FormModuleDescriptor[] {
   return Object.values(FORM_MODULES).filter((m) => m.available);
 }

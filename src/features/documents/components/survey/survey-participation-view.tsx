@@ -21,7 +21,7 @@ import { FilterSelect, SearchBox } from "../filters";
 const PAGE_SIZE = 20;
 
 /**
- * Who has answered: Answered / Not answered lists with search and department filter, and
+ * Who has completed it: Completed / Not completed lists with search and department filter, and
  * "Send reminder" for mandatory surveys. Only participation is shown – never who answered anonymously.
  */
 export function SurveyParticipationView({ documentId, survey, canRemind }: { documentId: string; survey: SurveyDto; canRemind: boolean }) {
@@ -42,7 +42,7 @@ export function SurveyParticipationView({ documentId, survey, canRemind }: { doc
       toast.success(
         res.notified
           ? `Reminder sent to ${res.notified.toLocaleString()} ${res.notified === 1 ? "person" : "people"}.`
-          : "Everyone who has not answered has already been reminded today.",
+          : "Everyone who has not completed it has already been reminded today.",
       );
     } catch (error) {
       toast.error(errorMessage(error));
@@ -61,10 +61,10 @@ export function SurveyParticipationView({ documentId, survey, canRemind }: { doc
         >
           <TabsList className="h-9 w-full sm:w-fit">
             <TabsTrigger value="not_answered" className="px-3">
-              Not answered {counts ? `(${counts.notAnswered.toLocaleString()})` : ""}
+              Not completed {counts ? `(${counts.notAnswered.toLocaleString()})` : ""}
             </TabsTrigger>
             <TabsTrigger value="answered" className="px-3">
-              Answered {counts ? `(${counts.answered.toLocaleString()})` : ""}
+              Completed {counts ? `(${counts.answered.toLocaleString()})` : ""}
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -76,7 +76,7 @@ export function SurveyParticipationView({ documentId, survey, canRemind }: { doc
               </Button>
             }
             title="Send a reminder?"
-            description={`Everyone who has not answered yet${counts ? ` (${counts.notAnswered.toLocaleString()} ${counts.notAnswered === 1 ? "person" : "people"})` : ""} gets an in-app reminder. People are reminded at most once a day.`}
+            description={`Everyone who has not completed it yet${counts ? ` (${counts.notAnswered.toLocaleString()} ${counts.notAnswered === 1 ? "person" : "people"})` : ""} gets an in-app reminder. People are reminded at most once a day.`}
             confirmLabel="Send reminder"
             onConfirm={sendReminder}
           />
@@ -102,7 +102,7 @@ export function SurveyParticipationView({ documentId, survey, canRemind }: { doc
         />
       </div>
       <p className="border-b bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        This list shows who took part, never which answers are theirs.{survey.allowAnonymous ? " People who answered anonymously appear as Answered like everyone else." : ""}
+        This list shows who took part, never which answers are theirs.{survey.allowAnonymous ? " People who answered anonymously appear as Completed like everyone else." : ""}
       </p>
 
       {query.isPending ? (
@@ -112,7 +112,7 @@ export function SurveyParticipationView({ documentId, survey, canRemind }: { doc
       ) : query.data.items.length === 0 ? (
         <EmptyState
           icon={status === "answered" ? UserCheck : CheckCircle2}
-          title={status === "answered" ? "Nobody has answered yet" : "Everyone has answered"}
+          title={status === "answered" ? "Nobody has completed it yet" : "Everyone has completed it"}
           description={q || departmentId ? "Try different filters." : undefined}
           className="m-3 border-0"
         />
@@ -125,7 +125,7 @@ export function SurveyParticipationView({ documentId, survey, canRemind }: { doc
                   <p className="truncate font-medium">{row.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{[row.department?.name, row.location?.name].filter(Boolean).join(" · ") || row.email}</p>
                 </div>
-                {row.answeredAt ? <StatusBadge tone="success">Answered {formatDate(row.answeredAt)}</StatusBadge> : <StatusBadge tone="warning">Not answered</StatusBadge>}
+                {row.answeredAt ? <StatusBadge tone="success">Completed {formatDate(row.answeredAt)}</StatusBadge> : <StatusBadge tone="warning">Not completed</StatusBadge>}
               </li>
             ))}
           </ul>
@@ -149,7 +149,7 @@ export function SurveyParticipationView({ documentId, survey, canRemind }: { doc
                     <TableCell>{row.department?.name ?? "—"}</TableCell>
                     <TableCell className="hidden lg:table-cell">{row.location?.name ?? "—"}</TableCell>
                     <TableCell className="pr-4">
-                      {row.answeredAt ? <StatusBadge tone="success">Answered {formatDate(row.answeredAt)}</StatusBadge> : <StatusBadge tone="warning">Not answered</StatusBadge>}
+                      {row.answeredAt ? <StatusBadge tone="success">Completed {formatDate(row.answeredAt)}</StatusBadge> : <StatusBadge tone="warning">Not completed</StatusBadge>}
                     </TableCell>
                   </TableRow>
                 ))}

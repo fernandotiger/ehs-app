@@ -195,7 +195,7 @@ export function useAnswerSurvey(document: { id: string; title: string }) {
     await enqueue({
       type: "document.survey_answer",
       payload: { ...input, documentId: document.id, clientAnsweredAt: new Date().toISOString() },
-      label: `Survey answers for ${document.title}`,
+      label: `Induction answers for ${document.title}`,
       userId: user.id,
     });
     return { queued: true };

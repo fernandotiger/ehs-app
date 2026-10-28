@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/common/states";
 import { PageBanner } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { ActionsDashboardWidget } from "@/features/actions/components/actions-widget";
 import { InsightsSection } from "@/features/configuration/components/insights-section";
 import { DocumentComplianceWidget, MyAcknowledgementsWidget } from "@/features/documents/components/dashboard-widgets";
 import { IncidentDashboardWidget } from "@/features/incidents/components/overview/incidents-overview";
@@ -22,6 +23,7 @@ export default async function DashboardPage() {
   const documents = user.enabledModules.includes("documents");
   const incidents = user.enabledModules.includes("incidents");
   const risk = user.enabledModules.includes("risk");
+  const actions = user.enabledModules.includes("actions");
 
   return (
     <>
@@ -70,13 +72,19 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {actions && (
+        <div className="mb-6">
+          <ActionsDashboardWidget />
+        </div>
+      )}
+
       {documents ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <MyAcknowledgementsWidget />
           <DocumentComplianceWidget />
         </div>
       ) : (
-        !incidents && !risk && <EmptyState icon={Inbox} title="You're all set" description="Modules enabled for your company will show their summaries here." />
+        !incidents && !risk && !actions && <EmptyState icon={Inbox} title="You're all set" description="Modules enabled for your company will show their summaries here." />
       )}
 
       <InsightsSection />

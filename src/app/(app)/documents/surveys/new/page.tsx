@@ -4,7 +4,7 @@ import { NewSurveyForm } from "@/features/documents/components/survey/new-survey
 import { guardModulePage } from "@/server/auth/page-guard";
 import { DOCUMENT_PERMISSIONS } from "@/server/modules/documents/document-permissions";
 
-export const metadata: Metadata = { title: "Create survey" };
+export const metadata: Metadata = { title: "Create Employee Induction" };
 
 export default async function NewSurveyPage() {
   if (!(await guardModulePage("documents", ...DOCUMENT_PERMISSIONS.MANAGE))) return <AccessDenied />;

@@ -37,7 +37,7 @@ async function resolveSurvey(documentId: string, surveyId?: string) {
     where: surveyId ? { id: surveyId, documentId } : currentSurveyWhere(documentId),
     include: { questions: { select: resultQuestionSelect, orderBy: { position: "asc" } } },
   });
-  if (!survey) throw new NotFoundError("This document has no survey.");
+  if (!survey) throw new NotFoundError("This document has no induction.");
   return { doc, survey };
 }
 
@@ -189,7 +189,7 @@ export const surveyResultsService = {
   async textAnswers(documentId: string, query: SurveyTextAnswersQuery) {
     const { survey } = await resolveSurvey(documentId, query.surveyId);
     const question = survey.questions.find((q) => q.id === query.questionId);
-    if (!question || question.type !== "TEXT") throw new ValidationError("Choose a text question of this survey.");
+    if (!question || question.type !== "TEXT") throw new ValidationError("Choose a text question of this induction.");
     const vis = await visibility(survey.id);
     if (!vis.visible) return { items: [], total: 0, page: query.page, pageSize: query.pageSize };
     const { items, total } = await textAnswersPage(survey.id, question.id, vis.anonymousVisible, paginate(query));
@@ -264,7 +264,7 @@ export const surveyResultsService = {
     const where = responseWhere(survey.id, vis.anonymousVisible);
     let cursor: string | undefined;
     let done = !vis.visible;
-    return csvStreamResponse(csvFileName(doc.title, "survey-answers", now), header, async () => {
+    return csvStreamResponse(csvFileName(doc.title, "induction-answers", now), header, async () => {
       if (done) return null;
       const rows = await prisma.documentSurveyResponse.findMany({
         where,

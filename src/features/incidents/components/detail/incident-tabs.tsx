@@ -132,7 +132,7 @@ export function ActionsTab({ incident, onAdd }: { incident: IncidentDetailDto; o
     <div>
       <SectionHeading
         title="Actions"
-        description="Corrective and preventive actions for this incident. A shared action shows the same progress on every incident it is linked to."
+        description="Actions for this incident. A shared action shows the same progress on every incident it is linked to."
         actions={
           canAdd ? (
             <>

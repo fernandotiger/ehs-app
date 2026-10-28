@@ -67,7 +67,7 @@ function initial(m: ActionSheetMode): Values {
   };
 }
 
-/** Create / edit / follow-up for a corrective or preventive action (short form in a Sheet). */
+/** Create / edit / follow-up for an action (short form in a Sheet). */
 export function ActionFormSheet({ open, onOpenChange, config, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; config: ActionSheetMode; onSaved?: (id: string) => void }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -151,11 +151,12 @@ function ActionForm({ config, onDone }: { config: ActionSheetMode; onDone: (id?:
           <FieldLabel htmlFor="a-desc">What needs to be done? *</FieldLabel>
           <Textarea id="a-desc" rows={3} value={v.description} onChange={(e) => set({ description: e.target.value })} placeholder="e.g. Replace the defective ladder" />
         </Field>
-        {config.mode === "create" && (
+        {/* Without incidents the kind is always preventive (a corrective action needs an incident), so it is not asked. */}
+        {config.mode === "create" && config.incidentIds.length > 0 && (
           <Field>
             <FieldLabel htmlFor="a-kind">Kind</FieldLabel>
             <SimpleSelect id="a-kind" value={v.kind} onChange={(x) => set({ kind: (x ?? "CORRECTIVE") as ActionKindKey })} options={enumOptions(ACTION_KINDS, ACTION_KIND_LABELS)} />
-            <FieldDescription>Corrective fixes the cause of this event; preventive stops similar events.</FieldDescription>
+            <FieldDescription>Corrective fixes the cause of this incident; Preventive stops similar events happening again.</FieldDescription>
           </Field>
         )}
         <Field data-invalid={(showErrors && !v.ownerId) || undefined}>

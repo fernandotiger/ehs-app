@@ -9,6 +9,9 @@ don't have to read their code.
 - Context: `apiHandler` → `runWithTenant`; server components resolve it from the session; cron → `forEachTenant(fn)`
   (`org` now includes `enabledModules`); scripts → `runWithTenant(orgId, fn)`. `requireTenantId()` inside a context.
 - Storage keys: `org/<organizationId>/<folder>/…` (`UPLOAD_FOLDERS` in `src/lib/validation/uploads.ts`).
+  Server-generated files: `uploadService.createFromBytes(user, { purpose, fileName, mimeType, bytes }, onUploaded?)` → an
+  UPLOADED session owned by the user (consumed like a browser upload; used by Risk → Save as document (PDF));
+  `GET /api/uploads/:id` = owner-only summary (name, type, size) of an unused upload.
 - Provisioning (no `server-only`, takes a PrismaClient): `src/server/tenancy/provisioning.ts`
   `provisionTenant(db, { name, slug, adminEmail, adminName, password, modules?, branding?, failIfExists? })` +
   helpers `ensureDefaultRoles/Lookups/Settings`, `ensureUserWithPassword`, `ensureAssignment`. Default roles:
@@ -65,6 +68,12 @@ To plug a new entity type in: write `<module>/<entity>.entity.ts` implementing `
 - Acknowledgement signatures now include `organizationId`.
 - Document surveys (one optional survey per document, anonymous answers, results, due work `document.survey`): see `docs/modules/document-surveys.md`.
 - Document tags (per-tenant, case-insensitive; filter + search in Document Library and My Documents): see `docs/modules/document-tags.md`.
+- Document surveys are shown to people as **Employee Induction** (28 Oct 2026; routes, APIs and code keep "survey").
+
+## Standalone Actions module (28 Oct 2026)
+Module key `actions` (sidebar section "Actions" before Configuration: My Actions, Create Action), entity `Action` in the
+registry, placed model `action`, due-work kind `action`, Form Builder purpose `actions / ACTION`, permissions
+`action.view|create|manage`. See `docs/modules/actions.md`.
 
 ## Data, migrations, local DB
 - Baseline migration `prisma/migrations/20261026092415_init` (+ immutable triggers for `audit_logs`, `document_acknowledgements`).
@@ -84,7 +93,7 @@ To plug a new entity type in: write `<module>/<entity>.entity.ts` implementing `
 | | `liam@northstar.example` Liam Byrne | EHS Investigator; Warehouse (Cork) |
 | | `sarah@northstar.example` Sarah O'Connor | Manager at SITE Cork Distribution; Warehouse |
 | | `john@northstar.example` John Murphy | Employee; Warehouse (always outstanding on acknowledgements) |
-| Oleo Demo Ltd (`oleo-demo`, documents + incidents, green branding) | `admin@oleo-demo.example` Morgan Kelly | Administrator |
+| Oleo Demo Ltd (`oleo-demo`, documents + incidents + actions, green branding) | `admin@oleo-demo.example` Morgan Kelly | Administrator |
 | | `jordan@oleo-demo.example` Jordan Lee | Employee |
 
 Northstar structure: BU Operations → sites Dublin Plant (location Production Floor: Engineering, Operations, Port Central

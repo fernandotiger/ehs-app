@@ -41,6 +41,11 @@ export const PERMISSIONS = {
   RISK_TASK_VERIFY: "risk.task.verify",
   RISK_CONFIGURE: "risk.configure",
 
+  // Actions (standalone)
+  ACTION_VIEW: "action.view",
+  ACTION_CREATE: "action.create",
+  ACTION_MANAGE: "action.manage",
+
   // Audit
   AUDIT_VIEW: "audit.view",
   AUDIT_SCHEDULE: "audit.schedule",
@@ -142,6 +147,16 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: P.INCIDENT_ACTION_VERIFY, label: "Verify completed actions", description: "Record whether completed actions were effective." },
       { key: P.INCIDENT_RECURRING_MANAGE, label: "Manage recurring actions", description: "Reserved for recurring actions (no screen yet)." },
       { key: P.INCIDENT_CONFIGURE, label: "Configure incidents", description: "Incident types, subtypes, forms and settings." },
+    ],
+  },
+  {
+    key: "actions",
+    title: "Actions",
+    description: "Standalone actions that are not linked to an incident or a risk.",
+    permissions: [
+      { key: P.ACTION_VIEW, label: "View actions", description: "See every standalone action in scope (everyone sees actions they own or created)." },
+      { key: P.ACTION_CREATE, label: "Create actions", description: "Create actions and assign them to someone." },
+      { key: P.ACTION_MANAGE, label: "Manage actions", description: "Edit, reassign, cancel, reopen or complete anyone's actions in scope." },
     ],
   },
   {

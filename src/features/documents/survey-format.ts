@@ -3,7 +3,7 @@ import type { BadgeTone } from "@/components/common/status-badge";
 import { surveyDefinitionSchema, type SurveyDefinitionInput, type SurveyQuestionTypeValue } from "@/lib/validation/document-surveys";
 import type { MySurveyStatus, SurveyDto } from "@/server/modules/documents/survey.dto";
 
-/** Plain-word labels, drafts and examples for the survey builder and reader screens. */
+/** Plain-word labels, drafts and examples for the survey builder and reader screens (shown to people as "Employee Induction"). */
 
 /** A survey's management page (Survey Library); documents use /documents/manage/:id. */
 export function surveyPageHref(documentId: string): string {
@@ -17,11 +17,11 @@ export const QUESTION_TYPE_META: Record<SurveyQuestionTypeValue, { label: string
 };
 
 export const MY_SURVEY_STATUS_META: Record<MySurveyStatus, { label: string; tone: BadgeTone }> = {
-  ANSWERED: { label: "Survey answered", tone: "success" },
-  REQUIRED: { label: "Survey to answer", tone: "warning" },
-  OVERDUE: { label: "Survey to answer", tone: "danger" },
-  OPTIONAL: { label: "Survey", tone: "brand" },
-  CLOSED: { label: "Survey closed", tone: "neutral" },
+  ANSWERED: { label: "Induction completed", tone: "success" },
+  REQUIRED: { label: "Induction to complete", tone: "warning" },
+  OVERDUE: { label: "Induction to complete", tone: "danger" },
+  OPTIONAL: { label: "Induction", tone: "brand" },
+  CLOSED: { label: "Induction closed", tone: "neutral" },
 };
 
 export const ANONYMOUS_EXPLANATION = "Your name won't be saved with your answers. We only record that you took part.";

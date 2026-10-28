@@ -1,6 +1,7 @@
 import "server-only";
 import type { CurrentUser } from "@/server/auth/current-user";
 import { ForbiddenError, NotFoundError } from "@/server/http/errors";
+import { actionEntity } from "@/server/modules/actions/action.entity";
 import { documentEntity } from "@/server/modules/documents/document.entity";
 import { actionTaskEntity, correctiveActionEntity, incidentEntity, investigationEntity } from "@/server/modules/incidents/incident.entity";
 import { riskAssessmentEntity, riskObjectiveEntity, riskProgrammeEntity, riskTaskEntity } from "@/server/modules/risk/risk.entity";
@@ -23,6 +24,7 @@ const ENTITIES: Record<string, EntityDescriptor> = {
   RiskTask: riskTaskEntity,
   RiskProgramme: riskProgrammeEntity,
   RiskObjective: riskObjectiveEntity,
+  Action: actionEntity,
 };
 
 export function getEntity(entityType: string): EntityDescriptor | null {

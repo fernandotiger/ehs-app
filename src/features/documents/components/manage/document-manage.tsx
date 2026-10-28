@@ -53,7 +53,7 @@ export function DocumentActions({ doc }: { doc: ManageDocumentDto }) {
             </Button>
           }
           title={`Publish “${doc.title}”?`}
-          description="Everyone in the audience will be notified and can open the document straight away."
+          description={`Everyone in the audience will be notified and can open the ${doc.survey ? "induction" : "document"} straight away.`}
           confirmLabel="Publish"
           onConfirm={() => run("publish", "Published")}
         />

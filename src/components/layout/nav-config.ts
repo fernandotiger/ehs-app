@@ -1,4 +1,4 @@
-import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, ListChecks, ListTodo, Settings, ShieldAlert, ShieldCheck, SquarePen, Target, TriangleAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, ListChecks, ListTodo, Settings, ShieldAlert, ShieldCheck, SquareCheckBig, SquarePen, SquarePlus, Target, TriangleAlert, type LucideIcon } from "lucide-react";
 import { CONFIGURATION_PERMISSIONS } from "@/features/configuration/hub-cards";
 import type { ModuleKey } from "@/lib/modules";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -44,10 +44,11 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { title: "My Documents", href: "/documents", icon: BookOpenCheck },
       { title: "Document Library", href: "/documents/manage", icon: FileStack, permissions: [PERMISSIONS.DOCUMENTS_MANAGE, PERMISSIONS.DOCUMENTS_ACK_REPORTS] },
-      // Surveys are listed apart from documents: My Surveys (to answer) · Survey Library (manage) · Create survey.
-      { title: "My Surveys", href: "/documents/surveys", icon: ClipboardList },
-      { title: "Survey Library", href: "/documents/surveys/library", icon: ClipboardCheck, permissions: [PERMISSIONS.DOCUMENTS_MANAGE, PERMISSIONS.DOCUMENTS_ACK_REPORTS] },
-      { title: "Create survey", href: "/documents/surveys/new", icon: SquarePen, permissions: [PERMISSIONS.DOCUMENTS_MANAGE] },
+      // Document surveys are shown to people as "Employee Induction" (owner's decision, 28 Oct 2026; routes keep "surveys"):
+      // My Inductions (to complete) · Induction Library (manage) · Create induction.
+      { title: "My Inductions", href: "/documents/surveys", icon: ClipboardList },
+      { title: "Induction Library", href: "/documents/surveys/library", icon: ClipboardCheck, permissions: [PERMISSIONS.DOCUMENTS_MANAGE, PERMISSIONS.DOCUMENTS_ACK_REPORTS] },
+      { title: "Create induction", href: "/documents/surveys/new", icon: SquarePen, permissions: [PERMISSIONS.DOCUMENTS_MANAGE] },
     ],
   },
   {
@@ -77,6 +78,17 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: "Objectives & programmes", href: "/risk/strategy", icon: Target, permissions: [PERMISSIONS.RISK_VIEW, PERMISSIONS.RISK_CREATE] },
       { title: "Tasks", href: "/risk/tasks", icon: ListTodo },
       { title: "Reports", href: "/risk/reports", icon: BarChart3, permissions: [PERMISSIONS.RISK_VIEW, PERMISSIONS.RISK_TASK_VIEW] },
+    ],
+  },
+  {
+    // Standalone actions (not linked to an incident or a risk), placed just before Configuration (owner's request, 28 Oct 2026).
+    key: "actions",
+    title: "Actions",
+    icon: SquareCheckBig,
+    module: "actions",
+    items: [
+      { title: "My Actions", href: "/actions", icon: ListTodo },
+      { title: "Create Action", href: "/actions/new", icon: SquarePlus, permissions: [PERMISSIONS.ACTION_CREATE] },
     ],
   },
   {

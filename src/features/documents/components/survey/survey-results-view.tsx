@@ -91,7 +91,7 @@ function ChoiceBars({ question }: { question: SurveyQuestionResult }) {
   );
 }
 
-/** Summary of a survey's answers for the document's creator (current or a previous survey). */
+/** Summary of an induction's answers for its creator (current or a previous one). */
 export function SurveyResultsView({ documentId, surveyId }: { documentId: string; surveyId?: string }) {
   const query = useSurveyResults(documentId, surveyId);
 
@@ -103,10 +103,10 @@ export function SurveyResultsView({ documentId, surveyId }: { documentId: string
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <StatCard label="Answers" value={t.participants.toLocaleString()} hint={t.participants ? "took part" : "nobody yet"} icon={UserCheck} tone="success" />
-        <StatCard label="Answer rate" value={`${t.answerRate}%`} hint={`${t.answeredInAudience.toLocaleString()} of ${t.audience.toLocaleString()}`} icon={Users} tone="info" />
+        <StatCard label="Completed" value={t.participants.toLocaleString()} hint={t.participants ? "took part" : "nobody yet"} icon={UserCheck} tone="success" />
+        <StatCard label="Completion rate" value={`${t.answerRate}%`} hint={`${t.answeredInAudience.toLocaleString()} of ${t.audience.toLocaleString()}`} icon={Users} tone="info" />
         {t.notAnswered !== null && (
-          <StatCard label="Not answered" value={t.notAnswered.toLocaleString()} hint="Everyone must answer" icon={UserX} tone={t.notAnswered ? "warning" : "success"} className="col-span-2 lg:col-span-1" />
+          <StatCard label="Not completed" value={t.notAnswered.toLocaleString()} hint="Everyone must complete it" icon={UserX} tone={t.notAnswered ? "warning" : "success"} className="col-span-2 lg:col-span-1" />
         )}
       </div>
 

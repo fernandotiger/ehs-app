@@ -78,17 +78,17 @@ function EditForm({ doc, survey }: { doc: ManageDocumentDto; survey: boolean }) 
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
-      {/* A survey's title and introduction are edited with its questions (Survey → Edit survey). */}
+      {/* A survey's title and introduction are edited with its questions (Induction → Edit induction). */}
       {!survey && (
         <FormSection title="Details">
           <DocumentDetailsFields control={form.control} />
         </FormSection>
       )}
       <FormSection
-        title={survey ? "Who should answer?" : "Audience"}
+        title={survey ? "Who should complete it?" : "Audience"}
         description={
           survey
-            ? "Anyone matching at least one audience can answer the survey. Newly included people are notified."
+            ? "Anyone matching at least one audience can complete the induction. Newly included people are notified."
             : "Anyone matching at least one audience can open the document. Newly included people are notified."
         }
       >

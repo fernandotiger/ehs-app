@@ -91,7 +91,7 @@ async function syncDocumentIdentity(tx: Prisma.TransactionClient, documentId: st
     where: { id: { not: documentId }, status: { not: "ARCHIVED" }, title: { equals: def.title, mode: "insensitive" } },
     select: { id: true },
   });
-  if (clash) throw new ConflictError("An active document or survey with this title already exists.");
+  if (clash) throw new ConflictError("An active document or induction with this title already exists.");
   await tx.document.update({ where: { id: documentId }, data: { title: def.title, description: def.intro } });
 }
 
@@ -125,14 +125,14 @@ export async function auditSurveyCreated(tx: Prisma.TransactionClient, documentI
   );
 }
 
-/** "New survey: <document>" to the whole audience (or the given people). */
+/** "New induction: <document>" to the whole audience (or the given people). */
 export async function notifySurveyAudience(doc: { id: string; title: string; audiences: AudienceRow[] }, survey: { isMandatory: boolean }, where?: Prisma.UserWhereInput): Promise<number> {
   return notifyUsers(where ?? audiencePopulationWhere(doc.audiences), {
     type: survey.isMandatory ? SURVEY_NOTIFICATIONS.REQUIRED : SURVEY_NOTIFICATIONS.AVAILABLE,
-    title: `New survey: ${doc.title}`,
+    title: `New induction: ${doc.title}`,
     body: survey.isMandatory
-      ? "Please open the document and answer a few short questions about it."
-      : "Open the document and tell us what you think – it only takes a minute.",
+      ? "Please complete it: read any file that comes with it and answer a few short questions."
+      : "Open it and answer a few short questions – it only takes a minute.",
     link: documentLink(doc.id),
     entityType: DOCUMENT_ENTITY,
     entityId: doc.id,
@@ -159,10 +159,10 @@ async function loadCurrent(documentId: string): Promise<SurveyRow | null> {
 }
 
 /** Surveys are only created on the Survey page, never added to an existing document. */
-const NO_SURVEY = "This document has no survey. New surveys are created on the Survey page (Documents → Survey).";
+const NO_SURVEY = "This document has no induction. New inductions are created on Documents → Create induction.";
 
 function notArchived(doc: { status: string }) {
-  if (doc.status === "ARCHIVED") throw new BusinessRuleError("Restore the document before changing its survey.");
+  if (doc.status === "ARCHIVED") throw new BusinessRuleError("Restore the induction before changing it.");
 }
 
 function toSurveyDto(row: SurveyRow, counts: { named: number; anonymous: number }, defaultDueDays: number): SurveyDto {
@@ -235,7 +235,7 @@ export const surveyService = {
     notArchived(doc);
     const current = await loadCurrent(documentId);
     if (!current) throw new BusinessRuleError(NO_SURVEY);
-    if (input.expectedVersion === undefined) throw new ConflictError("This document already has a survey. Reload to edit it.");
+    if (input.expectedVersion === undefined) throw new ConflictError("This document already has an induction. Reload to edit it.");
     const expectedVersion = input.expectedVersion;
     const next = definitionData(input.survey);
     const nextQuestions = normaliseQuestions(input.survey.questions);
@@ -297,7 +297,7 @@ export const surveyService = {
     const doc = await loadDocument(documentId);
     notArchived(doc);
     const current = await loadCurrent(documentId);
-    if (!current) throw new NotFoundError("This document has no survey.");
+    if (!current) throw new NotFoundError("This document has no induction.");
     const problem = surveyTransitionProblem(current.status, action);
     if (problem) throw new BusinessRuleError(problem);
     const status = action === "close" ? "CLOSED" : "ACTIVE";
@@ -424,7 +424,7 @@ export const surveyService = {
     });
     if (!doc) throw new NotFoundError();
     const survey = await prisma.documentSurvey.findFirst({ where: { id: input.surveyId, documentId }, select: { id: true, status: true, allowAnonymous: true } });
-    if (!survey) throw new NotFoundError("Survey not found");
+    if (!survey) throw new NotFoundError("Induction not found");
 
     const existing = await prisma.documentSurveyParticipation.findUnique({ where: { surveyId_userId: { surveyId: survey.id, userId: user.id } } });
     if (existing) return { surveyId: survey.id, created: false, answeredAt: existing.answeredAt.toISOString() };
@@ -434,11 +434,11 @@ export const surveyService = {
       version = await prisma.documentVersion.findFirst({ where: { id: input.versionId, documentId }, select: { id: true, versionNumber: true } });
       if (!version) throw new NotFoundError("Version not found");
       if (options.source === "ONLINE" && version.id !== doc.currentVersionId) {
-        throw new BusinessRuleError("A newer version of this document is available. Please open it before answering the survey.");
+        throw new BusinessRuleError("A newer version of the file is available. Please open it before completing the induction.");
       }
     } else if (options.source === "ONLINE" && doc.currentVersionId) {
       // A file was added since the reader loaded the page.
-      throw new BusinessRuleError("Please open the document before answering the survey.");
+      throw new BusinessRuleError("Please open the file before completing the induction.");
     }
     const block = answerBlockReason({
       documentStatus: doc.status,
@@ -459,8 +459,8 @@ export const surveyService = {
           where: { id: survey.id },
           select: { status: true, allowAnonymous: true, questions: { select: questionSelect, orderBy: { position: "asc" } } },
         });
-        if (!fresh || fresh.status !== "ACTIVE") throw new BusinessRuleError("This survey is closed.");
-        if (input.anonymous && !fresh.allowAnonymous) throw new BusinessRuleError("This survey does not allow anonymous answers.");
+        if (!fresh || fresh.status !== "ACTIVE") throw new BusinessRuleError("This induction is closed.");
+        if (input.anonymous && !fresh.allowAnonymous) throw new BusinessRuleError("This induction does not allow anonymous answers.");
         const checked = validateAnswers(fresh.questions, input.answers);
         if (!checked.ok) throw new ValidationError(checked.issues[0]!.message, checked.issues.map((i) => ({ path: `answers.${i.questionId}`, message: i.message })));
 
@@ -502,9 +502,9 @@ export const surveyService = {
   async remind(documentId: string, actor: CurrentUser, meta: RequestMeta): Promise<{ notified: number }> {
     const doc = await loadDocument(documentId);
     const survey = await prisma.documentSurvey.findFirst({ where: currentSurveyWhere(documentId), select: { id: true, status: true, isMandatory: true } });
-    if (!survey) throw new NotFoundError("This document has no survey.");
+    if (!survey) throw new NotFoundError("This document has no induction.");
     if (doc.status !== "PUBLISHED" || survey.status !== "ACTIVE" || !survey.isMandatory) {
-      throw new BusinessRuleError("Reminders can only be sent for an open survey that everyone must answer on a published document.");
+      throw new BusinessRuleError("Reminders can only be sent for a published, open induction that everyone must complete.");
     }
     const today = localDate(new Date(), actor.timeZone);
     const where: Prisma.UserWhereInput = { AND: [audiencePopulationWhere(doc.audiences), { documentSurveyParticipations: { none: { surveyId: survey.id } } }] };
@@ -513,8 +513,8 @@ export const surveyService = {
       notified += await notificationService.notify({
         userIds: ids,
         type: SURVEY_NOTIFICATIONS.REMINDER,
-        title: `Reminder: please answer the survey on ${doc.title}`,
-        body: "It only takes a minute. Open the document, then press “Answer survey”.",
+        title: `Reminder: induction to complete – ${doc.title}`,
+        body: "It only takes a minute. Open it, then press “Complete the induction”.",
         link: documentLink(doc.id),
         entityType: DOCUMENT_ENTITY,
         entityId: doc.id,

@@ -72,6 +72,20 @@ export async function uploadFile(
   return { uploadId, fileName, sizeBytes };
 }
 
+/** A file already uploaded for the signed-in user and not used yet (e.g. a PDF prepared by the server). */
+export interface UploadSummary {
+  uploadId: string;
+  purpose: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+/** Name, type and size of the caller's own unused upload; 404 when it was used, expired or is not theirs. */
+export function getUploadSummary(uploadId: string): Promise<UploadSummary> {
+  return api.get<UploadSummary>(`/api/uploads/${encodeURIComponent(uploadId)}`);
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

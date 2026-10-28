@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, CalendarCheck, CheckCircle2, Copy, FilePenLine, FileSearch, MoreHorizontal, Pencil, QrCode, Send } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarCheck, CheckCircle2, Copy, FilePenLine, FileSearch, FileUp, MoreHorizontal, Pencil, Printer, QrCode, Send } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -12,6 +12,7 @@ import { isStaleVersion } from "@/components/common/stale-version-alert";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
 import { PageHeader } from "@/components/layout/page-header";
+import { useCurrentUser } from "@/components/providers/current-user-provider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,10 +23,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "@/lib/api-client";
+import { PERMISSIONS } from "@/lib/permissions";
 import { addMonths, hazardWordTitle } from "@/lib/risk/labels";
 import { RISK_METHOD_LABELS } from "@/lib/risk/scoring";
 import { reviewBlockers } from "@/server/modules/risk/workflow";
-import { useAssessment, useAssessmentCommand, type AssessmentDetailDto } from "../../api";
+import { useAssessment, useAssessmentCommand, useAssessmentPdfUpload, type AssessmentDetailDto } from "../../api";
 import { blockersOf, formatDate } from "../../format";
 import { AssessmentStatusBadge, BlockerList, ConfidentialBadge, LifecycleStepper, ScoreChip } from "../shared";
 import { TaskFormSheet } from "../tasks/task-form-sheet";
@@ -59,6 +61,22 @@ function Detail({ a }: { a: AssessmentDetailDto }) {
   const [errorBlockers, setErrorBlockers] = useState<string[]>([]);
   const command = useAssessmentCommand(a.id);
   const p = a.permissions;
+  const { can, hasModule } = useCurrentUser();
+  const canSaveAsDocument = hasModule("documents") && can(PERMISSIONS.DOCUMENTS_MANAGE);
+  const pdfUpload = useAssessmentPdfUpload(a.id);
+
+  /** PDF → the user's document upload → Upload document page with the file attached and suggestions filled in. */
+  async function saveAsDocument() {
+    const toastId = toast.loading("Creating the PDF…");
+    try {
+      const result = await pdfUpload.mutateAsync();
+      toast.dismiss(toastId);
+      const query = new URLSearchParams({ uploadId: result.uploadId, title: result.title, description: result.description.slice(0, 300) });
+      router.push(`/documents/manage/new?${query.toString()}`);
+    } catch (error) {
+      toast.error(errorMessage(error), { id: toastId });
+    }
+  }
 
   async function run(cmd: "submit" | "revise" | "archive" | "restore" | "clone", success: string) {
     setErrorBlockers([]);
@@ -132,6 +150,16 @@ function Detail({ a }: { a: AssessmentDetailDto }) {
     p.approve && a.nextStep !== "APPROVE" ? (
       <DropdownMenuItem key="approve" onSelect={() => setDialog("approve")}>
         <CheckCircle2 /> Approve
+      </DropdownMenuItem>
+    ) : null,
+    <DropdownMenuItem key="print" asChild>
+      <Link href={`/risk/assessments/${a.id}/print`}>
+        <Printer /> Print
+      </Link>
+    </DropdownMenuItem>,
+    canSaveAsDocument ? (
+      <DropdownMenuItem key="save-document" disabled={pdfUpload.isPending} onSelect={() => void saveAsDocument()}>
+        {pdfUpload.isPending ? <Spinner /> : <FileUp />} Save as document (PDF)
       </DropdownMenuItem>
     ) : null,
     <DropdownMenuItem key="qr" onSelect={() => setDialog("qr")}>

@@ -17,6 +17,7 @@ export const NUMBERING_TYPES = {
   "corrective-action": { label: "Corrective & preventive actions", module: "incidents", prefix: "ACT" },
   "risk-assessment": { label: "Risk assessments", module: "risk", prefix: "RA" },
   "risk-task": { label: "Risk tasks", module: "risk", prefix: "RT" },
+  action: { label: "Actions", module: "actions", prefix: "AC" },
   audit: { label: "Audits", module: "audits", prefix: "AUD" },
   "audit-finding": { label: "Audit findings", module: "audits", prefix: "FND" },
   inspection: { label: "Inspections", module: "inspections", prefix: "INS" },

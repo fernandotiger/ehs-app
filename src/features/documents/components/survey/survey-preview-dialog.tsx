@@ -37,9 +37,9 @@ export function SurveyPreviewDialog({ draft, trigger }: { draft: SurveyDraft; tr
           <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-brand">
             <Eye className="size-3.5" /> Preview – what readers will see
           </p>
-          <DialogTitle className="text-lg">{draft.title.trim() || "Survey title"}</DialogTitle>
+          <DialogTitle className="text-lg">{draft.title.trim() || "Induction title"}</DialogTitle>
           <DialogDescription>
-            {draft.isMandatory ? `Required · answer within ${Number.isFinite(draft.dueDays) ? draft.dueDays : "?"} days` : "Optional"} · {questionsLabel(questions.length)} ·{" "}
+            {draft.isMandatory ? `Required · complete within ${Number.isFinite(draft.dueDays) ? draft.dueDays : "?"} days` : "Optional"} · {questionsLabel(questions.length)} ·{" "}
             {minutesLabel(estimatedMinutes(questions))}
           </DialogDescription>
         </DialogHeader>

@@ -9,6 +9,8 @@ import { settingsService } from "@/server/modules/settings/settings.service";
 import { getStorage } from "@/server/storage";
 
 const SESSION_TTL_MS = 60 * 60 * 1000;
+/** Files the server generates (e.g. a risk assessment PDF) wait this long for the form that uses them. */
+const GENERATED_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface ConsumedFile {
   storageDriver: string;
@@ -28,6 +30,30 @@ function formatMb(bytes: number) {
   return `${Math.round((bytes / 1024 / 1024) * 10) / 10} MB`;
 }
 
+async function limitFor(purpose: UploadPurpose): Promise<number> {
+  return FIXED_UPLOAD_LIMITS[purpose] ?? (await settingsService.maxUploadBytes(purpose === "evidence" ? "evidence" : "default"));
+}
+
+/** Every object lives below its tenant's prefix, so storage can be audited/exported per company. */
+function storageKeyFor(organizationId: string, purpose: UploadPurpose, now: Date, uploadId: string, fileName: string): string {
+  return `org/${organizationId}/${UPLOAD_FOLDERS[purpose]}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${uploadId}/${sanitiseFileName(fileName)}`;
+}
+
+export interface CreateFromBytesInput {
+  purpose: UploadPurpose;
+  fileName: string;
+  mimeType: string;
+  bytes: Uint8Array;
+}
+
+export interface UploadSummary {
+  uploadId: string;
+  purpose: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
 async function loadOwnedSession(uploadId: string, user: Pick<CurrentUser, "id">) {
   const session = await prisma.uploadSession.findUnique({ where: { id: uploadId } });
   if (!session) throw new NotFoundError("Upload not found");
@@ -44,15 +70,13 @@ async function loadOwnedSession(uploadId: string, user: Pick<CurrentUser, "id">)
  */
 export const uploadService = {
   async init(input: InitUploadInput, user: CurrentUser) {
-    const maxBytes =
-      FIXED_UPLOAD_LIMITS[input.purpose] ?? (await settingsService.maxUploadBytes(input.purpose === "evidence" ? "evidence" : "default"));
+    const maxBytes = await limitFor(input.purpose);
     if (input.purpose !== "document-version" && input.sizeBytes === 0) throw new ValidationError("The file is empty.");
     if (input.sizeBytes > maxBytes) {
       throw new ValidationError(`File is too large. The maximum size is ${formatMb(maxBytes)}.`);
     }
     const storage = getStorage();
     const now = new Date();
-    const folder = UPLOAD_FOLDERS[input.purpose];
 
     const session = await prisma.uploadSession.create({
       data: {
@@ -69,8 +93,7 @@ export const uploadService = {
       },
     });
 
-    // Every object lives below its tenant's prefix, so storage can be audited/exported per company.
-    const storageKey = `org/${user.organizationId}/${folder}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${session.id}/${sanitiseFileName(input.fileName)}`;
+    const storageKey = storageKeyFor(user.organizationId, input.purpose, now, session.id, input.fileName);
     await prisma.uploadSession.update({ where: { id: session.id }, data: { storageKey } });
 
     const instruction = await storage.createUploadInstruction({
@@ -159,6 +182,66 @@ export const uploadService = {
       data: { status: "UPLOADED", sizeBytes: info.sizeBytes },
     });
     return { uploadId, sizeBytes: info.sizeBytes };
+  },
+
+  /**
+   * Server-generated files (e.g. a risk assessment PDF): creates the session for `user`, stores the
+   * bytes under the same `org/<organizationId>/<folder>/…` key scheme and marks it UPLOADED with
+   * size + sha256, so a domain operation later consumes it exactly like a browser upload.
+   * `onUploaded` runs in the transaction that marks it uploaded (e.g. the caller's audit record).
+   */
+  async createFromBytes(
+    user: Pick<CurrentUser, "id" | "organizationId">,
+    input: CreateFromBytesInput,
+    onUploaded?: (tx: DbClient, upload: UploadSummary) => Promise<void>,
+  ): Promise<UploadSummary> {
+    const sizeBytes = input.bytes.byteLength;
+    if (sizeBytes === 0) throw new ValidationError("The file is empty.");
+    const maxBytes = await limitFor(input.purpose);
+    if (sizeBytes > maxBytes) throw new ValidationError(`File is too large. The maximum size is ${formatMb(maxBytes)}.`);
+    const storage = getStorage();
+    const now = new Date();
+    const mimeType = input.mimeType || "application/octet-stream";
+
+    const session = await prisma.uploadSession.create({
+      data: {
+        organizationId: user.organizationId,
+        userId: user.id,
+        purpose: input.purpose,
+        storageDriver: storage.driver,
+        storageKey: `pending/${crypto.randomUUID()}`,
+        fileName: input.fileName,
+        mimeType,
+        maxBytes,
+        expiresAt: new Date(now.getTime() + GENERATED_TTL_MS),
+      },
+    });
+    const storageKey = storageKeyFor(user.organizationId, input.purpose, now, session.id, input.fileName);
+    await storage.put(storageKey, input.bytes, mimeType);
+    const checksum = createHash("sha256").update(input.bytes).digest("hex");
+    const upload: UploadSummary = { uploadId: session.id, purpose: input.purpose, fileName: input.fileName, mimeType, sizeBytes };
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.uploadSession.update({ where: { id: session.id }, data: { storageKey, status: "UPLOADED", sizeBytes, checksum } });
+        await onUploaded?.(tx, upload);
+      });
+    } catch (error) {
+      await storage.delete(storageKey).catch(() => undefined);
+      throw error;
+    }
+    return upload;
+  },
+
+  /**
+   * The owner's own uploaded, not yet used file (name, type, size – never the storage key).
+   * Used, expired, still pending or someone else's → 404.
+   */
+  async summary(uploadId: string, user: Pick<CurrentUser, "id">): Promise<UploadSummary> {
+    const session = await prisma.uploadSession.findUnique({ where: { id: uploadId } });
+    if (!session || session.userId !== user.id || session.status !== "UPLOADED" || session.expiresAt < new Date()) {
+      throw new NotFoundError("This file is no longer available – choose the file again.");
+    }
+    return { uploadId: session.id, purpose: session.purpose, fileName: session.fileName, mimeType: session.mimeType, sizeBytes: session.sizeBytes ?? 0 };
   },
 
   /**

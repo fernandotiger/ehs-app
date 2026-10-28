@@ -71,7 +71,7 @@ export function NewSurveyForm() {
   const surveyRef = useRef<HTMLDivElement>(null);
   const updateSurvey: SurveyDraftUpdater = (change) => setSurvey((d) => change(d));
 
-  // "Answer within" follows the configured default until the creator changes it.
+  // "Complete within" follows the configured default until the creator changes it.
   const [dueDaysSeen, setDueDaysSeen] = useState(surveyDefaults.defaultDueDays);
   if (surveyDefaults.defaultDueDays !== dueDaysSeen) {
     setDueDaysSeen(surveyDefaults.defaultDueDays);
@@ -83,7 +83,7 @@ export function NewSurveyForm() {
     defaultValues: {
       audience: EMPTY_AUDIENCE,
       ack: {
-        // The survey has its own "Everyone must answer"; confirming the file is an extra step to opt into.
+        // The survey has its own "Everyone must complete it"; confirming the file is an extra step to opt into.
         requiresAcknowledgement: false,
         ackDueDays: settings.defaultAckDueDays,
         reminderIntervalDays: settings.defaultReminderIntervalDays,
@@ -138,7 +138,7 @@ export function NewSurveyForm() {
             : null;
           const created = await create.mutateAsync({ ...values, survey: draftToInput(survey), uploadId, publish: nextIntent === "publish" });
           toast.success(
-            nextIntent === "publish" ? `Survey published – ${created.notified.toLocaleString()} ${created.notified === 1 ? "person" : "people"} notified.` : "Draft saved.",
+            nextIntent === "publish" ? `Induction published – ${created.notified.toLocaleString()} ${created.notified === 1 ? "person" : "people"} notified.` : "Draft saved.",
           );
           router.push(surveyPageHref(created.id));
         } catch (error) {
@@ -156,12 +156,12 @@ export function NewSurveyForm() {
   return (
     <>
       <PageHeader
-        title="Create survey"
-        description="Ask people a few questions, add a file for them to read first if you like, and choose who should answer."
+        title="Create Employee Induction"
+        description="Ask people a few questions, add a file for them to read first if you like, and choose who should complete it."
         actions={
           <Button asChild variant="outline">
             <Link href="/documents/surveys/library">
-              <ClipboardList /> Existing surveys
+              <ClipboardList /> Existing inductions
             </Link>
           </Button>
         }
@@ -169,7 +169,7 @@ export function NewSurveyForm() {
 
       <form className="max-w-4xl space-y-4 pb-4" onSubmit={(e) => e.preventDefault()} noValidate>
         <div ref={surveyRef} className="scroll-mt-20">
-          <FormSection step={1} title="Survey" description="The survey goes live when you publish it. If you add a file, people open it before answering.">
+          <FormSection step={1} title="Induction questions" description="The induction goes live when you publish it. If you add a file, people open it before answering.">
             <div className="space-y-4">
               <ExampleStarters onPick={pickExample} disabled={busy} />
               <SurveyBuilder draft={survey} onChange={updateSurvey} errors={surveyErrors} idPrefix="new-survey" />
@@ -180,7 +180,7 @@ export function NewSurveyForm() {
         <FormSection
           step={2}
           title="File (optional)"
-          description="Something people read before answering – for example a procedure, training slides or a notice. Leave it empty for a survey on its own."
+          description="Something people read before answering – for example a procedure, training slides or a notice. Leave it empty for an induction with questions only."
         >
           <FileDropzone
             id="survey-file"
@@ -195,11 +195,11 @@ export function NewSurveyForm() {
           />
         </FormSection>
 
-        <FormSection step={3} title="Who should have access?" description="Combine as many audiences as you need – anyone matching at least one will see the survey and can answer it.">
+        <FormSection step={3} title="Who should have access?" description="Combine as many audiences as you need – anyone matching at least one will see the induction and can complete it.">
           <AudienceBuilder control={control} />
         </FormSection>
 
-        <FormSection step={4} title="Acknowledgement" description="Optional – ask people to confirm they have read the file as well as answering.">
+        <FormSection step={4} title="Acknowledgement" description="Optional – ask people to confirm they have read the file as well as answering the questions.">
           <AckSettingsFields control={control} unavailableReason={files.length ? undefined : "Add a file in step 2 to ask people to confirm they have read it."} />
         </FormSection>
 

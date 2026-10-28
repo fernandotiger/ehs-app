@@ -20,12 +20,12 @@ import { BannerStat } from "../my-documents";
 
 const PAGE_SIZE = 20;
 
-/** Plain labels for the reader's own list (the document lists use "Survey to answer" etc.). */
+/** Plain labels for the reader's own list (the document lists use "Induction to complete" etc.). */
 const STATUS_META: Record<MySurveyStatus, { label: string; tone: BadgeTone }> = {
-  REQUIRED: { label: "To answer", tone: "warning" },
+  REQUIRED: { label: "To complete", tone: "warning" },
   OVERDUE: { label: "Overdue", tone: "danger" },
   OPTIONAL: { label: "Optional", tone: "brand" },
-  ANSWERED: { label: "Answered", tone: "success" },
+  ANSWERED: { label: "Completed", tone: "success" },
   CLOSED: { label: "Closed", tone: "neutral" },
 };
 
@@ -76,7 +76,7 @@ function SurveyRow({ item, ackPending, answerPending }: { item: MyDocumentItem; 
   );
 }
 
-/** My Surveys – the employee's list of surveys to answer (surveys are kept out of My Documents). */
+/** My Employee Inductions (menu "My Inductions") – the employee's list of document surveys to complete (kept out of My Documents). */
 export function MySurveys() {
   const [filter, setFilter] = useState<MySurveyFilter>("all");
   const [search, setSearch] = useState("");
@@ -89,11 +89,11 @@ export function MySurveys() {
 
   return (
     <>
-      <PageBanner title="My Surveys" description="Surveys you have been asked to answer. Open one to read any file that comes with it and send your answers.">
+      <PageBanner title="My Employee Inductions" description="Inductions you have been asked to complete. Open one to read any file that comes with it and answer its questions.">
         <div className="grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
-          <BannerStat label="To answer" value={summary?.toAnswer ?? "–"} icon={ClipboardCheck} highlight={Boolean(summary?.toAnswer)} />
+          <BannerStat label="To complete" value={summary?.toAnswer ?? "–"} icon={ClipboardCheck} highlight={Boolean(summary?.toAnswer)} />
           <BannerStat label="Overdue" value={summary?.overdue ?? "–"} icon={AlertTriangle} />
-          <BannerStat label="Answered" value={summary?.answered ?? "–"} icon={CheckCircle2} />
+          <BannerStat label="Completed" value={summary?.answered ?? "–"} icon={CheckCircle2} />
         </div>
       </PageBanner>
 
@@ -110,13 +110,13 @@ export function MySurveys() {
               All
             </TabsTrigger>
             <TabsTrigger value="todo" className="px-3">
-              To answer
+              To complete
               {Boolean(summary?.toAnswer) && (
                 <span className="ml-1 rounded-full bg-warning/20 px-1.5 text-[0.7rem] font-semibold text-[#9a5b00] tabular-nums">{summary?.toAnswer}</span>
               )}
             </TabsTrigger>
             <TabsTrigger value="answered" className="px-3">
-              Answered
+              Completed
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -127,7 +127,7 @@ export function MySurveys() {
               setSearch(v);
               setPage(1);
             }}
-            placeholder="Search surveys"
+            placeholder="Search inductions"
           />
         </div>
       </div>
@@ -139,9 +139,9 @@ export function MySurveys() {
       ) : query.data.items.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title={filter === "todo" && !q ? "You're all caught up" : "No surveys found"}
+          title={filter === "todo" && !q ? "You're all caught up" : "No inductions found"}
           description={
-            filter === "todo" && !q ? "There is no survey waiting for your answers." : q ? "Try a different search." : "Surveys you are asked to answer will appear here."
+            filter === "todo" && !q ? "There is no induction waiting for you to complete." : q ? "Try a different search." : "Inductions you are asked to complete will appear here."
           }
         />
       ) : (

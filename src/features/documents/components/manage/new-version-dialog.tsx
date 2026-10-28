@@ -88,7 +88,7 @@ export function NewVersionDialog({ doc, survey = false }: { doc: ManageDocumentD
           <DialogTitle>Upload version {nextVersion}</DialogTitle>
           <DialogDescription>
             {survey && !doc.currentVersion
-              ? "People will open this file before answering the survey."
+              ? "People will open this file before completing the induction."
               : "Previous versions stay in the history. Employees only see the current version."}
           </DialogDescription>
         </DialogHeader>

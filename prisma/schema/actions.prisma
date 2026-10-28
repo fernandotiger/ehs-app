@@ -1,0 +1,64 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Actions module: standalone actions (sidebar "Actions" → My Actions / Create Action) that are
+// not linked to an incident or a risk. Lifecycle rules: src/server/modules/actions/workflow.ts.
+// Extra questions come from a published Form Builder form (module "actions", purpose "ACTION");
+// the version is captured on the action, like incidents and risk assessments.
+// People are referenced by user id (names are loaded for display), like the Risk module.
+// Priority reuses the Incident enum `ActionPriority` (LOW | NORMAL | HIGH | URGENT).
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ActionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+/// Standalone action. Overdue is derived (open / in progress and due date before today, company-local).
+model Action {
+  id              String         @id @default(cuid())
+  organizationId  String
+  /// "action" numbering, e.g. AC-2026-0001.
+  reference       String
+  /// Client-generated id from the Create Action form – makes creation idempotent.
+  clientId        String?
+  title           String
+  description     String         @default("")
+  priority        ActionPriority @default(NORMAL)
+  status          ActionStatus   @default(OPEN)
+  /// Person who does the action (assignee).
+  ownerId         String
+  createdById     String
+  dueDate         DateTime       @db.Date
+  startedAt       DateTime?
+  completedOn     DateTime?      @db.Date
+  completedAt     DateTime?
+  completedById   String?
+  completionNotes String?
+  cancelledAt     DateTime?
+  cancelledById   String?
+  cancelReason    String?
+  businessUnitId  String?
+  siteId          String?
+  locationId      String?
+  departmentId    String?
+  /// Form Builder form whose published version was captured (extra questions), if any.
+  formId          String?
+  formVersionId   String?
+  /// QuestionnaireSnapshot captured when the action was created.
+  form            Json?
+  /// Answers to the captured questions (file answers keep attachment ids).
+  answers         Json?
+  version         Int            @default(1)
+  archivedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([organizationId, reference])
+  @@unique([organizationId, clientId])
+  @@index([organizationId, siteId])
+  @@index([organizationId, status, dueDate])
+  @@index([organizationId, ownerId, status])
+  @@index([organizationId, createdById])
+  @@map("actions")
+}

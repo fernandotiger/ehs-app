@@ -86,7 +86,7 @@ export function MyDocuments() {
 
   return (
     <>
-      <PageBanner title="My Documents" description="Policies and procedures assigned to you. Open each one, confirm you have read it and answer any survey where asked.">
+      <PageBanner title="My Documents" description="Policies and procedures assigned to you. Open each one and confirm you have read it – inductions are under My Inductions.">
         <div className="grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
           <BannerStat label="To do" value={summary?.actionRequired ?? "–"} icon={ClipboardCheck} highlight={Boolean(summary?.actionRequired)} />
           <BannerStat label="Overdue" value={summary?.actionOverdue ?? "–"} icon={AlertTriangle} />
