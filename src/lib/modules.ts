@@ -64,7 +64,7 @@ export const MODULES: Record<ModuleKey, ModuleDescriptor> = {
     name: "Law",
     description: "Legal profiles, registers, compliance evaluations and requirement updates.",
     basePath: "/law",
-    entityTypes: ["LegalProfile", "LegalRequirement"],
+    entityTypes: ["LawProfile", "LawRequirement", "LawTask"],
   },
 };
 

@@ -21,7 +21,8 @@ export const NUMBERING_TYPES = {
   audit: { label: "Audits", module: "audits", prefix: "AUD" },
   "audit-finding": { label: "Audit findings", module: "audits", prefix: "FND" },
   inspection: { label: "Inspections", module: "inspections", prefix: "INS" },
-  "legal-evaluation": { label: "Compliance evaluations", module: "law", prefix: "LEV" },
+  "legal-evaluation": { label: "Legal requirements (compliance evaluations)", module: "law", prefix: "LEV" },
+  "law-task": { label: "Law tasks", module: "law", prefix: "LT" },
 } as const satisfies Record<string, NumberingTypeDescriptor>;
 
 export type NumberingKey = keyof typeof NUMBERING_TYPES;

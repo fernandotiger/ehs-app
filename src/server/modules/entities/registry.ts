@@ -4,6 +4,7 @@ import { ForbiddenError, NotFoundError } from "@/server/http/errors";
 import { actionEntity } from "@/server/modules/actions/action.entity";
 import { documentEntity } from "@/server/modules/documents/document.entity";
 import { actionTaskEntity, correctiveActionEntity, incidentEntity, investigationEntity } from "@/server/modules/incidents/incident.entity";
+import { lawProfileEntity, lawRequirementEntity, lawTaskEntity } from "@/server/modules/law/law.entity";
 import { riskAssessmentEntity, riskObjectiveEntity, riskProgrammeEntity, riskTaskEntity } from "@/server/modules/risk/risk.entity";
 import type { EntityDescriptor, EntitySummary } from "./types";
 
@@ -25,6 +26,9 @@ const ENTITIES: Record<string, EntityDescriptor> = {
   RiskProgramme: riskProgrammeEntity,
   RiskObjective: riskObjectiveEntity,
   Action: actionEntity,
+  LawProfile: lawProfileEntity,
+  LawRequirement: lawRequirementEntity,
+  LawTask: lawTaskEntity,
 };
 
 export function getEntity(entityType: string): EntityDescriptor | null {

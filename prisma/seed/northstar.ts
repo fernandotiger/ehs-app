@@ -9,6 +9,7 @@ import { seedDocuments, type DocumentSpec } from "./documents";
 import { seedForms } from "./forms";
 import { seedJobs } from "./jobs";
 import { NORTHSTAR_INCIDENTS, seedIncidents } from "./incidents";
+import { applyDemoLaw } from "./law";
 import { seedRisk } from "./risk";
 import { applyDemoRiskHazards } from "./risk-hazards";
 
@@ -329,5 +330,7 @@ export async function seedNorthstar(prisma: PrismaClient): Promise<TenantSeed> {
   await applyDemoRiskHazards(prisma, seed.organizationId);
   console.log("  • standalone actions (Action details form, demo actions)");
   await applyDemoActions(prisma, seed.organizationId);
+  console.log("  • law (legal content 2026.Q3, Non Compliance type, profiles, evaluations, tasks, links)");
+  await applyDemoLaw(prisma, seed.organizationId);
   return seed;
 }

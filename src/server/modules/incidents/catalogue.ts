@@ -81,9 +81,10 @@ export const INCIDENT_TYPE_CATALOGUE: CatalogueType[] = [
 
 /**
  * Stable keys used by cross-module follow-up routing. `audit-non-conformance` and
- * `non-compliance` are no longer in the built-in catalogue (Port of Cork demo set): the Audit and
- * Law phases must add those types or route to another one (the sheet files audit findings under
- * Inspection Finding → "Audit Finding"). The keys stay reserved.
+ * `non-compliance` are no longer in the built-in catalogue (Port of Cork demo set). The Law module
+ * sets up "Non Compliance" itself (src/server/modules/law/incident-type.ts); the Audit phase must
+ * add its type or route to another one (the sheet files audit findings under Inspection Finding →
+ * "Audit Finding"). The keys stay reserved.
  */
 export const INCIDENT_TYPE_KEYS = {
   AUDIT_NON_CONFORMANCE: "audit-non-conformance",
@@ -96,7 +97,8 @@ export const INCIDENT_TYPE_KEYS = {
  * record uses them, otherwise switched off). Their keys stay reserved for added types.
  */
 export const RETIRED_CATALOGUE = {
-  types: ["non-compliance", "environmental-incident", "audit-non-conformance"],
+  // "non-compliance" is no longer retired: the Law module sets it up (src/server/modules/law/incident-type.ts).
+  types: ["environmental-incident", "audit-non-conformance"],
   subtypes: {
     accident: ["First aid", "Lost time", "Reportable injury"],
     complaint: ["General"],

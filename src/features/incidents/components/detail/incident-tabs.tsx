@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 import { toast } from "sonner";
 import { LinkedRecords } from "@/components/common/linked-records";
+import { LawConnectionsCard } from "@/features/law/components/law-connections-card";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -98,6 +99,7 @@ export function OverviewTab({ incident }: { incident: IncidentDetailDto }) {
           </Card>
         )}
         <LinkedRecords entityType="Incident" entityId={incident.id} />
+        <LawConnectionsCard entityType="Incident" entityId={incident.id} />
       </div>
     </div>
   );

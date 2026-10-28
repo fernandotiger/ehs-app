@@ -9,6 +9,7 @@ import { ActionsDashboardWidget } from "@/features/actions/components/actions-wi
 import { InsightsSection } from "@/features/configuration/components/insights-section";
 import { DocumentComplianceWidget, MyAcknowledgementsWidget } from "@/features/documents/components/dashboard-widgets";
 import { IncidentDashboardWidget } from "@/features/incidents/components/overview/incidents-overview";
+import { LawDashboardWidget } from "@/features/law/components/overview/law-overview";
 import { RiskDashboardWidget } from "@/features/risk/components/overview/risk-overview";
 import { PERMISSIONS } from "@/lib/permissions";
 import { MyWorkWidget } from "@/features/my-work/components/my-work";
@@ -24,6 +25,7 @@ export default async function DashboardPage() {
   const incidents = user.enabledModules.includes("incidents");
   const risk = user.enabledModules.includes("risk");
   const actions = user.enabledModules.includes("actions");
+  const law = user.enabledModules.includes("law");
 
   return (
     <>
@@ -78,13 +80,19 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {law && (
+        <div className="mb-6">
+          <LawDashboardWidget />
+        </div>
+      )}
+
       {documents ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <MyAcknowledgementsWidget />
           <DocumentComplianceWidget />
         </div>
       ) : (
-        !incidents && !risk && !actions && <EmptyState icon={Inbox} title="You're all set" description="Modules enabled for your company will show their summaries here." />
+        !incidents && !risk && !actions && !law && <EmptyState icon={Inbox} title="You're all set" description="Modules enabled for your company will show their summaries here." />
       )}
 
       <InsightsSection />

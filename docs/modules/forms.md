@@ -1,7 +1,7 @@
 # Form Builder (Phase 3) – contracts for modules
 
 Spec: `../skills/ehs-functional-rebuild/references/form-builder.md` (+ examples F-01…F-10). Built for **Risk and
-Incident**; Audit, Inspection and Law are declared in the catalogue but not creatable yet (later).
+Incident**, Actions (`ACTION`) and Law (`LAW`, "Extra evaluation questions", no system questions – see law.md); Audit and Inspection are declared in the catalogue but not creatable yet (later).
 
 ## Data
 `prisma/schema/forms.prisma` (migration `20261026142028_forms_jobs`):
@@ -26,7 +26,7 @@ repeatedDefaultKeys(fields, "REPORT" | "INVESTIGATION")   // Incident: hide repe
   restricted to other sites are not in the snapshot.
 - Module/purpose keys: risk → `5x5 | 3x3 | FMEA | CHECKLIST`; incidents → `REPORT | INVESTIGATION`; actions → `ACTION`
   ("Extra action questions" on Create Action, no mandatory questions – 28 Oct 2026, `docs/modules/actions.md`); audits →
-  `STANDARD | SCORABLE | EXPRESS`, inspections → `INSPECTION`, law → `LAW` (later, `available: false`).
+  `STANDARD | SCORABLE | EXPRESS`, inspections → `INSPECTION` (later, `available: false`), law → `LAW` (available since 28 Oct 2026; captured on the first evaluation save).
 - Mandatory questions have fixed keys (`systemQuestions()` in `src/lib/forms/catalog.ts`): Incident Report
   `incidentTitle, occurredAt, site, whatHappened`; Investigation `investigationFindings, rootCauseAnalysis`; Risk
   `riskTitle, hazard, site, likelihood, severity, riskScore (type score), owner, reviewDate`. Map them to workflow
@@ -76,5 +76,5 @@ any signed-in user of the tenant.
 - Saving Risk rules on a published form publishes at once with the *published* questions; pending question changes
   stay in the draft. The method is fixed at creation (= purpose); domain can change (hazard label follows).
 - Form names are unique per tenant. Unnamed "Untitled question"s block publication.
-- Later: Audit settings + Scorable min/max/increment validation, Inspection and Law forms, conditional logic in the
+- Later: Audit settings + Scorable min/max/increment validation, Inspection forms, conditional logic in the
   designer (the engine supports `showWhen`, the designer does not expose it), form archive.

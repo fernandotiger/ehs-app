@@ -2,7 +2,7 @@
  * Form Builder catalogue – which modules can own forms, their purposes (Risk: scoring method,
  * Incident: Report/Investigation …), the mandatory module questions and the component palette.
  *
- * Open lists: a later module (Audit, Inspection, Law) flips `available` and adds its settings
+ * Open lists: a later module (Audit, Inspection) flips `available` and adds its settings
  * without changing the Form Builder itself. Framework-free (client, server, seed, tests).
  */
 import { RISK_DOMAIN_LABELS, RISK_METHOD_LABELS, type RiskDomain, type RiskMethod } from "../risk/scoring";
@@ -23,8 +23,6 @@ export interface FormModuleDescriptor {
   purposes: FormPurposeDescriptor[];
   /** False = declared for a later phase: not offered when creating forms yet. */
   available: boolean;
-  /** Law: forms can be designed and previewed, no workflow selects them. */
-  designOnly?: boolean;
 }
 
 export const FORM_MODULES: Record<string, FormModuleDescriptor> = {
@@ -79,9 +77,8 @@ export const FORM_MODULES: Record<string, FormModuleDescriptor> = {
     key: "law",
     label: "Law",
     purposeLabel: "Purpose",
-    purposes: [{ key: "LAW", label: "Legal requirement" }],
-    available: false,
-    designOnly: true,
+    purposes: [{ key: "LAW", label: "Extra evaluation questions", description: "Questions shown when someone checks compliance with a legal requirement, below the standard fields." }],
+    available: true,
   },
 };
 
@@ -175,19 +172,8 @@ const INSPECTION: SystemQuestion[] = [
   { key: "inspector", label: "Inspector", type: "person" },
   { key: "area", label: "Area or equipment", type: "text" },
 ];
-const LAW: SystemQuestion[] = [
-  { key: "requirementTitle", label: "Requirement title", type: "text" },
-  { key: "jurisdiction", label: "Jurisdiction", type: "text" },
-  { key: "summary", label: "Requirement summary", type: "textarea" },
-  { key: "owner", label: "Responsible owner", type: "person" },
-  {
-    key: "complianceStatus",
-    label: "Compliance status",
-    type: "select",
-    options: ["To assess", "Compliant", "Action required", "Not applicable"].map((l) => ({ value: l.toLowerCase().replace(/\s+/g, "-"), label: l })),
-  },
-  { key: "reviewDate", label: "Review date", type: "date" },
-];
+/** Law forms add extra evaluation questions only: the requirement, narratives, owner and review date are fixed fields. */
+const LAW: SystemQuestion[] = [];
 
 /**
  * The mandatory questions for a module/purpose, in their default order. They are `system`

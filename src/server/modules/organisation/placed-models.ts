@@ -7,7 +7,7 @@ import type { ResolvedPlacement } from "./placement";
  * departmentId). Modules add their Prisma delegate name here (e.g. "incident",
  * "riskAssessment") so moving a structure node keeps every placed record consistent.
  */
-export const PLACED_MODELS = ["user", "incident", "correctiveAction", "actionTask", "riskAssessment", "riskTask", "riskObjective", "riskProgramme", "action"] as const;
+export const PLACED_MODELS = ["user", "incident", "correctiveAction", "actionTask", "riskAssessment", "riskTask", "riskObjective", "riskProgramme", "action", "lawProfile", "lawRequirement", "lawTask"] as const;
 
 export type PlacedModel = (typeof PLACED_MODELS)[number];
 

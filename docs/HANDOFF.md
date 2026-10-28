@@ -19,13 +19,17 @@ and `../skills/ehs-functional-rebuild` (functional specs: `references/<module>.m
 | Incidents (+ admins add/rename incident types; Port of Cork demo types + per-type forms; type-first report wizard, 27 Oct; anonymous reporting; "Add action" wording without "preventive", 28 Oct) | done | `docs/modules/incidents.md` |
 | Risk (+ hazard lists per risk type on Configuration → Risk matrix; assessment Print + Save as document (PDF → Upload document), 28 Oct) | done | `docs/modules/risk.md` |
 | Actions – standalone (sidebar "Actions": My Actions, Create Action; Form Builder extra questions; My work, scheduled jobs, overdue notice; 28 Oct) | done | `docs/modules/actions.md` |
-| Audits, Inspections, Law | **not started – deferred by the product owner** | see "Next steps" |
+| Law (profiles, "Laws that apply to us" + Check compliance, tasks, Law library, content updates install/accept, reports; links + Non Compliance incident drafts + corrective actions with Risk/Incident back-links; 28 Oct) | done | `docs/modules/law.md` |
+| Audits, Inspections | **not started – deferred by the product owner** | see "Next steps" |
 
-Quality at handoff: `tsc` 0 errors, 438 vitest tests green (28 Oct, incl. `test/seed`), eslint clean, `next build` clean (no warnings).
+Quality at handoff: `tsc` 0 errors, 486 vitest tests green (28 Oct, incl. `test/seed`), eslint clean, `next build` clean (no warnings).
 Migrations: `init`, `configuration`, `forms_jobs`, `incidents`, `risk`, `document_surveys`, `survey_optional_file`, `document_tags`,
-`anonymous_incident_reports`, `actions` (28 Oct, additive; local DB only – reach Neon with the next Vercel deploy). `actions` also
+`anonymous_incident_reports`, `actions`, `law` (28 Oct, additive; local DB only – reach Neon with the next Vercel deploy). `actions` also
 holds two idempotent data statements: it switches the `actions` module on for every existing tenant and appends the new
 `action.*` keys to the system roles (by role key) – so a deploy turns the Actions section on for the Neon tenants too.
+`law` has no data statements (the `law` module key and `law.*` role keys existed from the start; Northstar already has it on).
+After the deploy the Neon tenants have an empty Law module until the library is installed: run `db:seed:law` there (owner's
+consent) or install a content package in Configuration → Law content & settings.
 New dependency: `pdf-lib` 1.17.1 (Risk → Save as document).
 **Git:** first commit 27 Oct 2026 on `master`, pushed to `https://github.com/fernandotiger/ehs-app` (owner's personal repo).
 Ask before committing or pushing. `Port of Cork Incident Module Templates 19022021.xlsx` (client file) stays local – it is
@@ -35,7 +39,7 @@ in `.gitignore`; its content is transcribed in `prisma/seed/incident-types.ts`.
 identical to `.env` there, or existing audit/acknowledgement signatures stop verifying.
 
 ## Databases and running it
-- `.env` → the product owner's **Neon** test database `mvp1` (`DATABASE_DRIVER=neon`). Migrated through `document_surveys` (**`survey_optional_file`, `document_tags`, `anonymous_incident_reports` and `actions` not applied yet** – the next Vercel deploy applies them; ask the owner before applying by hand) and seeded
+- `.env` → the product owner's **Neon** test database `mvp1` (`DATABASE_DRIVER=neon`). Migrated through `document_surveys` (**`survey_optional_file`, `document_tags`, `anonymous_incident_reports`, `actions` and `law` not applied yet** – the next Vercel deploy applies them; ask the owner before applying by hand) and seeded
   on 27 Oct 2026. `npm run dev` uses it (http://localhost:3000; `BETTER_AUTH_URL` must match the port).
 - `.env.localdb` → local `prisma dev` server `oleoq` (database `template1` on :51221, shadow :51222). Start with
   `npx prisma dev -n oleoq -d`; prefix commands with `bash scripts/localdb.sh` (Git Bash). Keep `DATABASE_POOL_MAX=1`.
@@ -97,6 +101,11 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
     owner change the due date or decline? verification step by the creator? repeating actions, archive, CSV export, offline
     create? overdue notice also to the creator / line manager? (Actions; yes; no; no; not built; owner only + Scheduled jobs
     escalation – see actions.md)
+20. Law (see law.md "Open questions"): several Non Compliance incidents per requirement over time? (one); who confirms a
+    "Law changed – review"? (owners + `law.evaluation.approve`); task owners without Law access see the requirement behind
+    their task? (yes, read-only); shared vendor library instead of per-tenant installs? (per tenant); links / follow-ups to
+    other sites or to standalone Actions? (same site, incident actions); default owner = me and next review = +1 year in
+    the check? (yes); cron overdue notice like Actions? (Scheduled jobs only); editable activities / categories? (fixed).
 
 ## Known issues and gotchas
 - Pages a user may not see render the not-found / access-denied UI with HTTP **200** (`(app)/loading.tsx` streams first); APIs return 404/403.
@@ -114,6 +123,11 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
   Demo standalone actions ("Action details" form, 7 actions, `action` target on the overdue job):
   `bash scripts/localdb.sh npm run db:seed:actions` (local DB applied 28 Oct 2026; Neon not – the Neon tenants get the module
   and role keys from the migration but no demo actions until this is run there with the owner's consent).
+  Law demo data (library 2026.Q3, Non Compliance incident type, law targets on the overdue job, 2 profiles, evaluations, tasks,
+  links): `bash scripts/localdb.sh npm run db:seed:law` (local DB applied 28 Oct 2026; Neon not). The local smoke test also
+  installed the 2026.Q4 sample update and accepted it into Cork only (Dublin shows "update available").
+- Browser-pane testing: the in-app browser pane can be hidden (viewport 0×0) – `read_page` then returns an empty page; set a size with
+  `resize_window` first. Law stat-card grids need `grid-cols-1` on phones (long hints otherwise widen the page).
 - Risk "Save as document (PDF)": each click stores a new PDF upload (usable 24 h); unused ones stay in storage like abandoned
   browser uploads (no clean-up job yet). The Print page opens the browser print dialog itself – in the in-app browser pane
   that dialog blocks the page; test Print through the menu with `window.print` stubbed.
@@ -121,11 +135,11 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
 
 ## Next steps
 1. Product owner to answer the open questions above.
-2. Audit, Inspection, Law – one phase each, brief modelled on `docs/briefs/05-risk.md`. Already prepared: permission keys
+2. Audit, Inspection – one phase each, brief modelled on `docs/briefs/05-risk.md` / `07-law.md`. Already prepared: permission keys
    (`src/lib/permissions.ts`), module keys (`src/lib/modules.ts`), Form Builder purposes (audits `STANDARD|SCORABLE|EXPRESS`,
-   inspections `INSPECTION`, law `LAW` – currently design/preview only; audit settings and scorable validation still to do),
-   due-work kinds `audit | inspection | law.evaluation` (declared, not registered), and the Incident follow-up contract
-   (`raiseIncidentDraft`, `raiseAction`, `followUpStatus` – `docs/modules/incidents.md`). Specs: `../skills/ehs-functional-rebuild/
-   references/{audit,inspection,law,cross-module}.md`; logic: `../ehs-screens/app/{audit,inspection,law}-model.ts`.
+   inspections `INSPECTION`; audit settings and scorable validation still to do), due-work kinds `audit | inspection`
+   (declared, not registered), and the Incident follow-up contract (`raiseIncidentDraft`, `raiseAction`, `followUpStatus` –
+   `docs/modules/incidents.md`; Law is its first user, `src/server/modules/law/connections.service.ts`). Specs:
+   `../skills/ehs-functional-rebuild/references/{audit,inspection,cross-module}.md`; logic: `../ehs-screens/app/{audit,inspection}-model.ts`.
 3. Vercel: demo document files seeded from this PC live in `./storage` (`storageDriver = local`) and cannot be opened on
    Vercel – copy them to Vercel Blob (one-off script) or re-upload them as new versions.

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { LinkedRecords } from "@/components/common/linked-records";
+import { LawConnectionsCard } from "@/features/law/components/law-connections-card";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -89,6 +90,7 @@ export function OverviewTab({ a }: { a: AssessmentDetailDto }) {
         </Card>
         {a.rules.footnote && <p className="rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{a.rules.footnote}</p>}
         <LinkedRecords entityType="RiskAssessment" entityId={a.id} />
+        <LawConnectionsCard entityType="RiskAssessment" entityId={a.id} />
       </div>
     </div>
   );

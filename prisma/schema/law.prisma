@@ -1,0 +1,207 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Law module: legal profiles, the requirements that apply to them (compliance checklists and
+// company-specific "other requirements"), their evaluations, tasks and explicit links to Risk
+// assessments / Incidents / Incident actions. Spec: ../skills/ehs-functional-rebuild/references/law.md.
+//
+// Legal content (legislation + checklists) arrives in quarterly packages (YYYY.Q1–Q4). Each
+// installed package is a LawContentVersion holding the whole library at that version, so a profile
+// keeps showing the content it accepted until someone accepts a newer version into it.
+// Pure rules: src/lib/law/content.ts (packages, applicability) and src/server/modules/law/workflow.ts.
+// Raised follow-ups (incident draft, corrective action) go through the Incident follow-up contract
+// (RecordLink, idempotent); LawLink holds the explicit associations a person makes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum LawRequirementKind {
+  /// A checklist from the installed legal content (contentKey = checklist key).
+  CONTENT
+  /// A company / customer / industry commitment entered for one profile.
+  OTHER
+}
+
+enum LawTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum LawTaskStatus {
+  OPEN
+  COMPLETED
+}
+
+/// An installed legal-content package. `content` = { legislation: [...], checklists: [...] } – the whole
+/// library at this version (merged with the previous one); `changes` = New / Amended items of the package.
+model LawContentVersion {
+  id             String   @id @default(cuid())
+  organizationId String
+  /// "2026.Q3"
+  version        String
+  /// year × 4 + quarter – orders versions.
+  rank           Int
+  releasedOn     DateTime @db.Date
+  summary        String
+  content        Json
+  changes        Json
+  installedById  String?
+  installedAt    DateTime @default(now())
+
+  @@unique([organizationId, version])
+  @@index([organizationId, rank])
+  @@map("law_content_versions")
+}
+
+/// A legal profile: a site, its jurisdiction and activities – used to find the requirements that apply.
+model LawProfile {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String   @default("")
+  ownerId        String
+  jurisdiction   String
+  /// Activity names (src/lib/law/content.ts LAW_ACTIVITIES).
+  activities     String[]
+  /// Private profiles are visible to their owner and to people who manage law requirements.
+  isShared       Boolean  @default(true)
+  /// Presentation only: hides the self-assessed rating on screens, never the saved ratings.
+  showRating     Boolean  @default(true)
+  /// Accepted content version ("2026.Q3").
+  contentVersion String
+  businessUnitId String?
+  siteId         String?
+  locationId     String?
+  departmentId   String?
+  createdById    String
+  version        Int      @default(1)
+  archivedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  requirements LawRequirement[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, siteId])
+  @@index([organizationId, ownerId])
+  @@map("law_profiles")
+}
+
+/// A requirement in a profile and its evaluation. Never deleted: when it stops applying it is shown
+/// under "Outside this profile" with its evaluation, evidence, tasks and links.
+model LawRequirement {
+  id              String             @id @default(cuid())
+  organizationId  String
+  profileId       String
+  /// "legal-evaluation" numbering, e.g. LEV-2026-0001.
+  reference       String
+  kind            LawRequirementKind
+  /// Checklist key in the content library (CONTENT only).
+  contentKey      String?
+  /// Copied from the accepted content (CONTENT) or entered (OTHER).
+  title           String
+  /// "Health & Safety" | "Environment" | "Other requirements"
+  register        String
+  category        String
+  /// OTHER only (CONTENT reads its text from the accepted content version).
+  requirementText String             @default("")
+  keywords        String[]
+  /// Evaluation
+  isRelevant      Boolean            @default(true)
+  exclusionReason String?
+  /// "Why it applies / controls & who maintains them"
+  relevanceNotes  String             @default("")
+  /// "How we checked / evidence, findings and gaps"
+  evaluationNotes String             @default("")
+  /// Optional self-assessed rating 0–100 (null = not assessed).
+  rating          Int?
+  ownerId         String?
+  nextReviewDate  DateTime?          @db.Date
+  evaluatedOn     DateTime?          @db.Date
+  /// Set when accepted content changed this requirement; cleared only by an explicit confirmed review.
+  reviewRequired  Boolean            @default(false)
+  reviewReason    String?
+  /// Department responsible (placement); the profile's site when no department is chosen yet.
+  businessUnitId  String?
+  siteId          String?
+  locationId      String?
+  departmentId    String?
+  /// Extra evaluation questions: Form Builder form (module "law", purpose "LAW") captured on first save.
+  formId          String?
+  formVersionId   String?
+  form            Json?
+  answers         Json?
+  createdById     String?
+  version         Int                @default(1)
+  /// OTHER only: archived company requirements.
+  archivedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  profile LawProfile @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  tasks   LawTask[]
+  links   LawLink[]
+
+  @@unique([organizationId, reference])
+  @@unique([organizationId, profileId, contentKey])
+  @@index([organizationId, profileId])
+  @@index([organizationId, siteId])
+  @@index([organizationId, ownerId])
+  @@index([organizationId, nextReviewDate])
+  @@map("law_requirements")
+}
+
+/// Work needed to close a compliance gap. Completing it never changes the evaluation.
+model LawTask {
+  id              String          @id @default(cuid())
+  organizationId  String
+  /// "law-task" numbering, e.g. LT-2026-0001.
+  reference       String
+  requirementId   String
+  profileId       String
+  title           String
+  details         String          @default("")
+  ownerId         String
+  priority        LawTaskPriority @default(MEDIUM)
+  status          LawTaskStatus   @default(OPEN)
+  dueDate         DateTime        @db.Date
+  completedOn     DateTime?       @db.Date
+  completedAt     DateTime?
+  completedById   String?
+  completionNotes String?
+  businessUnitId  String?
+  siteId          String?
+  locationId      String?
+  departmentId    String?
+  createdById     String
+  version         Int             @default(1)
+  archivedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  requirement LawRequirement @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, reference])
+  @@index([organizationId, requirementId])
+  @@index([organizationId, siteId])
+  @@index([organizationId, ownerId, status])
+  @@index([organizationId, status, dueDate])
+  @@map("law_tasks")
+}
+
+/// Explicit association between a requirement and an existing Risk assessment, Incident or Incident action.
+model LawLink {
+  id             String   @id @default(cuid())
+  organizationId String
+  requirementId  String
+  /// "RiskAssessment" | "Incident" | "CorrectiveAction"
+  targetType     String
+  targetId       String
+  /// Hazard / aspect or reason, e.g. "Loading bay route conflict".
+  context        String   @default("")
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  requirement LawRequirement @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, requirementId, targetType, targetId])
+  @@index([organizationId, targetType, targetId])
+  @@map("law_links")
+}

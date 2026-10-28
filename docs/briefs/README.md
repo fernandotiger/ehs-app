@@ -11,6 +11,7 @@ are in `docs/modules/<module>.md`.
 | `04-incidents.md` | Incident module | `docs/modules/incidents.md` |
 | `05-risk.md` | Risk module | `docs/modules/risk.md` |
 | `06-document-surveys.md` | Document surveys | `docs/modules/document-surveys.md` |
+| `07-law.md` | Law module (+ Risk / Incident integration) | `docs/modules/law.md` |
 
 Phase 1 (multi-tenant platform foundation) is summarised in `docs/modules/platform.md`.
-**Template for the next modules (Audit, Inspection, Law):** copy the structure of `05-risk.md`.
+**Template for the next modules (Audit, Inspection):** copy the structure of `05-risk.md` or `07-law.md`.

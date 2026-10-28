@@ -19,7 +19,7 @@ ownerId, placement: { businessUnitId, siteId, locationId, departmentId }, review
 - Providers run inside the tenant context; return only eligible open work (e.g. Approved assessments with a review
   date, non-Completed tasks, non-Closed incidents with an unfinished investigation …, per the spec).
 - Kinds (`src/lib/jobs.ts`): `risk.review | risk.task | incident.investigation | incident.action` (registered by
-  the Incident and Risk modules) · `audit | inspection | law.evaluation` (declared, **later**) · `document.acknowledgement`
+  the Incident and Risk modules) · `law.evaluation` + `law.task` (Law module, 28 Oct 2026) · `audit | inspection` (declared, **later**) · `document.acknowledgement`
   (registered now: My work and an optional job target) · `action` (standalone actions, 28 Oct 2026 – see `actions.md`;
   the daily `/api/cron/reminders` also sends a one-off overdue notice per action and due date).
 

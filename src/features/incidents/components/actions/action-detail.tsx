@@ -10,6 +10,7 @@ import { EvidencePanel } from "@/components/common/evidence-panel";
 import { isStaleVersion } from "@/components/common/stale-version-alert";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
+import { LawConnectionsCard } from "@/features/law/components/law-connections-card";
 import { UserPicker } from "@/components/common/user-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -200,6 +201,7 @@ function ActionView({ action }: { action: ActionDetailDto }) {
               <CardContent className="text-sm">{action.source.href ? <Link href={action.source.href} className="text-brand hover:underline">{action.source.label}</Link> : action.source.label}</CardContent>
             </Card>
           )}
+          <LawConnectionsCard entityType="CorrectiveAction" entityId={action.id} />
           {(action.parent || action.followUps.length > 0) && (
             <Card>
               <CardHeader>

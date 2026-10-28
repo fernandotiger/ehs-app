@@ -17,6 +17,7 @@
     "db:seed:incident-types": "tsx scripts/seed-incident-types.ts",
     "db:seed:risk-hazards": "tsx scripts/seed-risk-hazards.ts",
     "db:seed:actions": "tsx scripts/seed-actions.ts",
+    "db:seed:law": "tsx scripts/seed-law.ts",
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "tenant:create": "tsx scripts/create-tenant.ts",

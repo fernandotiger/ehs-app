@@ -1,4 +1,4 @@
-import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, ListChecks, ListTodo, Settings, ShieldAlert, ShieldCheck, SquareCheckBig, SquarePen, SquarePlus, Target, TriangleAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, Library, ListChecks, ListTodo, MapPinned, Scale, Settings, ShieldAlert, ShieldCheck, SquareCheckBig, SquarePen, SquarePlus, Target, TriangleAlert, type LucideIcon } from "lucide-react";
 import { CONFIGURATION_PERMISSIONS } from "@/features/configuration/hub-cards";
 import type { ModuleKey } from "@/lib/modules";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -78,6 +78,23 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: "Objectives & programmes", href: "/risk/strategy", icon: Target, permissions: [PERMISSIONS.RISK_VIEW, PERMISSIONS.RISK_CREATE] },
       { title: "Tasks", href: "/risk/tasks", icon: ListTodo },
       { title: "Reports", href: "/risk/reports", icon: BarChart3, permissions: [PERMISSIONS.RISK_VIEW, PERMISSIONS.RISK_TASK_VIEW] },
+    ],
+  },
+  {
+    key: "law",
+    title: "Law",
+    icon: Scale,
+    module: "law",
+    // The spec's Legislation, Compliance checklists, Other requirements and Changes & updates are folded into
+    // "Laws that apply to us" (company requirements live there), the Law library and the profile pages;
+    // installing content packages lives in Configuration (/configuration/law).
+    items: [
+      { title: "Overview", href: "/law", icon: Gauge },
+      { title: "Laws that apply to us", href: "/law/requirements", icon: ClipboardCheck },
+      { title: "Tasks", href: "/law/tasks", icon: ListTodo },
+      { title: "Law library", href: "/law/library", icon: Library },
+      { title: "Profiles", href: "/law/profiles", icon: MapPinned },
+      { title: "Reports", href: "/law/reports", icon: BarChart3, permissions: [PERMISSIONS.LAW_VIEW] },
     ],
   },
   {

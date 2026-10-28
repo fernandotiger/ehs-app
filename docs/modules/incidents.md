@@ -143,7 +143,7 @@ nullable – existing rows unchanged):
 8. **Available for every type and every reporter**; no setting to switch it off yet (open question). Follow-up drafts
    raised from other modules are never anonymous. Anonymous does not imply Confidential (separate tick box).
 
-## Follow-up contract (`follow-up.service.ts`) – for Audit / Inspection / Law (later)
+## Follow-up contract (`follow-up.service.ts`) – for Audit / Inspection (later) and Law (used since 28 Oct 2026)
 All run in the CALLER's transaction and are idempotent through `recordLinkService.ensure` (unique source key +
 advisory lock): repeating a call for the same `source.type/id/key` returns the existing record (`created: false`).
 ```ts
@@ -155,7 +155,7 @@ raiseAction(tx, user, { kind: "corrective-action" | "preventive-action", descrip
 followUpStatus(targetType: "Incident" | "CorrectiveAction", targetId) → { resolved, label, href }
 ```
 Type keys: `audit-non-conformance`, `inspection-finding`, `non-compliance` (`INCIDENT_TYPE_KEYS`) – since 27 Oct 2026
-only `inspection-finding` is seeded; the other two keys stay reserved for the Audit / Law phases. Evidence ids
+only `inspection-finding` is seeded; `non-compliance` is set up by the Law module (law.md), `audit-non-conformance` stays reserved for the Audit phase. Evidence ids
 are copied (same stored object) onto the incident.
 
 ## UI (`src/features/incidents/`)
@@ -264,7 +264,7 @@ actions (tasks, preventive trend action). Oleo Demo: 2 incidents. Seeded inciden
   receipt code instead) wanted? Should comments by the anonymous reporter be blocked rather than warned about?
 - Anonymous smoke test (28 Oct 2026, **local DB only**): INC-2026-0016 "Anonymous smoke test - pallet stacked too high"
   (admin, wizard, 1 photo) and INC-2026-0017 "John anonymous test" (john, API); both Open.
-- Port of Cork demo set: Audit / Law follow-ups need a target type – re-add "Audit Non Conformance" / "Non Compliance"
+- Port of Cork demo set: Law settled its side (28 Oct 2026 – Law sets up its own "Non Compliance" type, see law.md). Audit follow-ups still need a target type – re-add "Audit Non Conformance"
   or route audits to Inspection Finding → "Audit Finding" (as the sheet does)? Should First Aid Outcome become a choice
   list (needs a structured first-aid field)? The old Cork-only "Describe the marine area" site question is no longer
   seeded on a fresh database (Form Builder site questions still work).
