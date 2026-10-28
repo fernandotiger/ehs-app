@@ -20,6 +20,7 @@ import { AcknowledgementPanel } from "./acknowledgement-panel";
 import { FilePreview } from "./file-preview";
 import { surveyPageHref } from "../survey-format";
 import { SurveyCard } from "./survey/survey-card";
+import { TagChips } from "./tag-chips";
 
 /** Employee document viewer: preview, open/download, and the acknowledgement panel. */
 export function DocumentViewer({ id }: { id: string }) {
@@ -74,6 +75,7 @@ export function DocumentViewer({ id }: { id: string }) {
             {doc.category && <StatusBadge tone="brand">{doc.category.name}</StatusBadge>}
             {doc.currentVersion && <StatusBadge>Version {doc.currentVersion.versionNumber}</StatusBadge>}
             <AckStatusBadge status={doc.ackStatus} acknowledgedAt={doc.acknowledgement?.acknowledgedAt} pendingSync={isPending} />
+            <TagChips tags={doc.tags} max={6} />
           </>
         }
         actions={

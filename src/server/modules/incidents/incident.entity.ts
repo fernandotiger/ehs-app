@@ -5,9 +5,9 @@ import type { EntityDescriptor } from "@/server/modules/entities/types";
 import { actionFacts } from "./action.service";
 import {
   actionVisibleWhere,
+  canAddReportEvidence,
   canCompleteTask,
   canEditAction,
-  canEditReport,
   canInvestigate,
   canReviewAction,
   canWorkOnAction,
@@ -23,6 +23,8 @@ const incidentSelect = {
   reference: true,
   title: true,
   reporterId: true,
+  isAnonymous: true,
+  anonymousReporterKey: true,
   isDraft: true,
   isConfidential: true,
   closedAt: true,
@@ -50,9 +52,7 @@ export const incidentEntity: EntityDescriptor = {
   async canEdit(user, id) {
     const row = await visibleIncident(user, id);
     if (!row || !row.type.attachmentsAllowed) return false;
-    const facts = recordFacts(row);
-    if (facts.closed || facts.archived) return false;
-    return canEditReport(user, facts) || canInvestigate(user, facts) || row.reporterId === user.id;
+    return canAddReportEvidence(user, recordFacts(row));
   },
 };
 

@@ -17,7 +17,7 @@ import type { RiskFormRulesDto } from "./risk.dto";
  * Builder publish rights) is required, like every configuration screen.
  */
 
-function requireRiskConfig(user: CurrentUser): void {
+export function requireRiskConfig(user: CurrentUser): void {
   if (!hasCompanyScope(user, PERMISSIONS.RISK_CONFIGURE) && !hasCompanyScope(user, PERMISSIONS.FORMS_PUBLISH)) {
     throw new ForbiddenError("Risk configuration applies only when assigned for the whole company.");
   }

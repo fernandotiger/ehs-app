@@ -41,6 +41,37 @@ model DocumentCategory {
   @@map("document_categories")
 }
 
+/// Free labels managers put on documents to group, filter and search them. Unique per tenant
+/// regardless of case ("Fire safety" and "fire  SAFETY" are one tag). Kept when no document uses
+/// them any more, so they are still offered when tagging.
+model DocumentTag {
+  id             String            @id @default(cuid())
+  organizationId String
+  /// As first typed (trimmed, single spaces) – shown everywhere.
+  name           String
+  /// Lower-case `name`: the per-tenant uniqueness key.
+  normalizedName String
+  createdAt      DateTime          @default(now())
+  documents      DocumentTagLink[]
+
+  @@unique([organizationId, normalizedName])
+  @@map("document_tags")
+}
+
+model DocumentTagLink {
+  organizationId String
+  documentId     String
+  tagId          String
+  createdAt      DateTime @default(now())
+
+  document Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag      DocumentTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+  @@index([organizationId, tagId])
+  @@map("document_tag_links")
+}
+
 model Document {
   id             String         @id @default(cuid())
   organizationId String
@@ -81,6 +112,7 @@ model Document {
   reminders        AcknowledgementReminder[]
   /// At most one non-REPLACED survey (enforced by the service); replaced ones are kept read-only.
   surveys          DocumentSurvey[]
+  tags             DocumentTagLink[]
 
   @@unique([organizationId, referenceCode])
   @@index([organizationId, status])

@@ -15,6 +15,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:seed:incident-types": "tsx scripts/seed-incident-types.ts",
+    "db:seed:risk-hazards": "tsx scripts/seed-risk-hazards.ts",
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "tenant:create": "tsx scripts/create-tenant.ts",

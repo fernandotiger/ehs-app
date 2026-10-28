@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, CheckCircle2, ClipboardCheck, FileSearch, ListChecks, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Search, Send } from "lucide-react";
+import { Archive, ArchiveRestore, CheckCircle2, ClipboardCheck, EyeOff, FileSearch, ListChecks, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Search, Send } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -13,6 +13,7 @@ import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states"
 import { StatusBadge } from "@/components/common/status-badge";
 import { UserPicker } from "@/components/common/user-picker";
 import { PageHeader } from "@/components/layout/page-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -68,6 +69,8 @@ function Detail({ incident }: { incident: IncidentDetailDto }) {
 
   const p = incident.permissions;
   const step = incident.archivedAt ? null : incident.nextStep;
+  // The reporter of an anonymous report, here only because they reported it (cannot add evidence).
+  const anonymousReporter = incident.isAnonymous && incident.reportedByMe && !p.addEvidence;
   const primary = primaryButton(step, incident, {
     submit: () => (incident.submitBlockers.length ? router.push(`/incidents/${incident.id}/edit`) : void run("submit", `${incident.reference} submitted`)),
     start: () => setDialog("start"),
@@ -93,6 +96,11 @@ function Detail({ incident }: { incident: IncidentDetailDto }) {
             {incident.isConfidential && (
               <StatusBadge tone="warning">
                 <Lock className="size-3" /> Confidential
+              </StatusBadge>
+            )}
+            {incident.isAnonymous && (
+              <StatusBadge tone="purple">
+                <EyeOff className="size-3" /> Anonymous
               </StatusBadge>
             )}
             {incident.archivedAt && <StatusBadge tone="warning">Archived</StatusBadge>}
@@ -138,6 +146,12 @@ function Detail({ incident }: { incident: IncidentDetailDto }) {
           <ActionsTab incident={incident} onAdd={() => setDialog("action")} />
         </TabsContent>
         <TabsContent value="evidence">
+          {anonymousReporter && (
+            <Alert className="mb-4">
+              <EyeOff />
+              <AlertDescription>Files you added with your report show no name. Adding files here would show your name, so it is switched off for you.</AlertDescription>
+            </Alert>
+          )}
           {incident.type.attachmentsAllowed ? (
             <EvidencePanel entityType="Incident" entityId={incident.id} readOnly={!p.addEvidence} />
           ) : (
@@ -145,6 +159,14 @@ function Detail({ incident }: { incident: IncidentDetailDto }) {
           )}
         </TabsContent>
         <TabsContent value="comments">
+          {anonymousReporter && (
+            <Alert className="mb-4 border-warning/40 bg-warning/10">
+              <EyeOff />
+              <AlertDescription className="text-foreground">
+                You reported this anonymously. A comment shows your name to everyone who can see this incident, so they could tell the report is yours.
+              </AlertDescription>
+            </Alert>
+          )}
           <CommentsPanel entityType="Incident" entityId={incident.id} />
         </TabsContent>
         <TabsContent value="history">

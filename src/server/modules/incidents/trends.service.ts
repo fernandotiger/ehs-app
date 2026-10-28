@@ -119,7 +119,7 @@ export const trendsService = {
     if (selected.some((id) => !matchedIds.has(id))) throw new ValidationError("Select incidents from the trend results.");
     const linkable = await prisma.incident.findMany({
       where: { id: { in: selected } },
-      select: { id: true, reporterId: true, isDraft: true, isConfidential: true, closedAt: true, archivedAt: true, businessUnitId: true, siteId: true, locationId: true, departmentId: true, investigators: { select: { userId: true } } },
+      select: { id: true, reporterId: true, isAnonymous: true, anonymousReporterKey: true, isDraft: true, isConfidential: true, closedAt: true, archivedAt: true, businessUnitId: true, siteId: true, locationId: true, departmentId: true, investigators: { select: { userId: true } } },
     });
     // Closed incidents are part of a trend too; the action is linked to the open ones the user may act on.
     const links = linkable.filter((i) => !i.closedAt && canRaiseAction(user, recordFacts(i))).map((i) => i.id);

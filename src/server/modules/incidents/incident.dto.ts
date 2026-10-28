@@ -53,7 +53,9 @@ export interface IncidentListItem {
   submittedAt: string | null;
   siteName: string | null;
   departmentName: string | null;
-  reporter: NamedRef;
+  /** Null when reported anonymously. */
+  reporter: NamedRef | null;
+  isAnonymous: boolean;
   investigators: NamedRef[];
   investigationStatus: InvestigationStatusKey | null;
   investigationTargetDate: string | null;
@@ -199,7 +201,11 @@ export interface IncidentDetailDto {
   isConfidential: boolean;
   isDraft: boolean;
   submittedAt: string | null;
-  reporter: NamedRef;
+  /** Null when reported anonymously – nobody (not even admins) sees who reported it. */
+  reporter: NamedRef | null;
+  isAnonymous: boolean;
+  /** The viewer made this report (under their name or anonymously) – only ever told to the reporter. */
+  reportedByMe: boolean;
   immediateAction: string | null;
   firstAid: string | null;
   nurseNotified: boolean;

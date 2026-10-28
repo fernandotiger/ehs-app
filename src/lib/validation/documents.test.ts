@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { ACK_NEEDS_FILE, createSurveyDocumentSchema, EMPTY_AUDIENCE, libraryQuerySchema, mySurveysQuerySchema } from "./documents";
+import {
+  ACK_NEEDS_FILE,
+  cleanTagName,
+  createSurveyDocumentSchema,
+  documentMetadataSchema,
+  EMPTY_AUDIENCE,
+  libraryQuerySchema,
+  myDocumentsQuerySchema,
+  mySurveysQuerySchema,
+  TAG_NAME_MAX,
+  tagKey,
+  tagListQuerySchema,
+  TAGS_PER_DOCUMENT_MAX,
+  uniqueTagNames,
+} from "./documents";
 
 const survey = {
   title: "Manual handling check",
@@ -49,5 +63,31 @@ describe("Library and My Surveys queries", () => {
     expect(mySurveysQuerySchema.parse({}).filter).toBe("all");
     expect(mySurveysQuerySchema.parse({ filter: "todo" }).filter).toBe("todo");
     expect(mySurveysQuerySchema.safeParse({ filter: "acknowledged" }).success).toBe(false);
+  });
+});
+
+describe("Document tags", () => {
+  it("cleans names and treats case and spacing as the same tag", () => {
+    expect(cleanTagName("  Fire   safety ")).toBe("Fire safety");
+    expect(tagKey("Fire  SAFETY")).toBe(tagKey("fire safety"));
+  });
+
+  it("keeps the first spelling and drops empty or repeated tags", () => {
+    expect(uniqueTagNames(["Fire safety", " ", "fire  SAFETY", "Induction", "induction "])).toEqual(["Fire safety", "Induction"]);
+  });
+
+  it("limits tag length and count on documents", () => {
+    const base = { title: "Fire policy", description: "", referenceCode: "", categoryName: "" };
+    expect(documentMetadataSchema.safeParse({ ...base, tags: [] }).success).toBe(true);
+    expect(documentMetadataSchema.safeParse({ ...base, tags: ["x".repeat(TAG_NAME_MAX + 1)] }).success).toBe(false);
+    expect(documentMetadataSchema.safeParse({ ...base, tags: ["   "] }).success).toBe(false);
+    expect(documentMetadataSchema.safeParse({ ...base, tags: Array.from({ length: TAGS_PER_DOCUMENT_MAX + 1 }, (_, i) => `t${i}`) }).success).toBe(false);
+    expect(documentMetadataSchema.safeParse(base).success).toBe(false);
+  });
+
+  it("accepts a tag filter on both lists", () => {
+    expect(libraryQuerySchema.parse({ tagId: "cktag0000000000000000001" }).tagId).toBe("cktag0000000000000000001");
+    expect(myDocumentsQuerySchema.parse({}).tagId).toBeUndefined();
+    expect(tagListQuerySchema.parse({}).scope).toBe("mine");
   });
 });

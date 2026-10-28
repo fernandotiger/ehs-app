@@ -11,6 +11,7 @@ import { assignedDocumentsWhere, audienceIncludesPrincipal, audienceRowSelect, v
 import { DOCUMENT_AUDIT, DOCUMENT_VERSION_ENTITY } from "./document-audit-actions";
 import { audienceNamedSelect, iso, toAudienceSummary, toStatus, toVersionSummary, versionSummarySelect } from "./document-mappers";
 import { buildRequirement, computeComplianceStats, requirementSelect, type RequirementDocument } from "./document-requirement";
+import { documentTagsInclude, tagFilterWhere, tagSearchWhere, toTags } from "./document-tags";
 import { isSurveyActionRequired } from "./survey-rules";
 import { currentSurveyWhere, mySurveyStates, surveyDocumentsWhere, surveySummaries, surveysToAnswer } from "./survey-summary";
 import type { MySurveySummaryDto, SurveySummaryDto } from "./survey.dto";
@@ -30,6 +31,7 @@ import type {
 const myDocumentInclude = {
   category: { select: { id: true, name: true } },
   currentVersion: { select: versionSummarySelect },
+  tags: documentTagsInclude,
 } satisfies Prisma.DocumentInclude;
 
 type MyDocumentRow = Prisma.DocumentGetPayload<{ include: typeof myDocumentInclude }>;
@@ -42,6 +44,7 @@ function searchWhere(q: string | undefined): Prisma.DocumentWhereInput {
       { description: { contains: q, mode: "insensitive" } },
       { referenceCode: { contains: q, mode: "insensitive" } },
       { category: { name: { contains: q, mode: "insensitive" } } },
+      tagSearchWhere(q),
     ],
   };
 }
@@ -98,6 +101,7 @@ function toMyItem(row: MyDocumentRow, state: ReturnType<typeof myStatusFor>, sur
     description: row.description,
     referenceCode: row.referenceCode,
     category: row.category,
+    tags: toTags(row.tags),
     status: toStatus(row.status),
     currentVersion: toVersionSummary(row.currentVersion),
     publishedAt: iso(row.publishedAt),
@@ -131,6 +135,7 @@ const libraryInclude = {
   category: { select: { id: true, name: true } },
   currentVersion: { select: versionSummarySelect },
   audiences: { select: audienceNamedSelect },
+  tags: documentTagsInclude,
 } satisfies Prisma.DocumentInclude;
 
 type LibraryRow = Prisma.DocumentGetPayload<{ include: typeof libraryInclude }>;
@@ -141,6 +146,7 @@ async function toLibraryItem(row: LibraryRow, requirement: RequirementDocument, 
     title: row.title,
     referenceCode: row.referenceCode,
     category: row.category,
+    tags: toTags(row.tags),
     status: toStatus(row.status),
     currentVersion: toVersionSummary(row.currentVersion),
     audience: toAudienceSummary(row.audiences),
@@ -225,7 +231,7 @@ export const documentQueryService = {
     const filterWhere: Prisma.DocumentWhereInput =
       query.filter === "action" ? { id: { in: actionIds } } : query.filter === "acknowledged" ? { id: { in: acknowledgedIds } } : {};
     const where: Prisma.DocumentWhereInput = {
-      AND: [assigned, filterWhere, searchWhere(query.q), query.categoryId ? { categoryId: query.categoryId } : {}],
+      AND: [assigned, filterWhere, searchWhere(query.q), query.categoryId ? { categoryId: query.categoryId } : {}, tagFilterWhere(query.tagId)],
     };
 
     const [rows, filteredTotal] = await Promise.all([
@@ -327,6 +333,7 @@ export const documentQueryService = {
         surveyDocumentsWhere(query.type === "survey"),
         searchWhere(query.q),
         query.categoryId ? { categoryId: query.categoryId } : {},
+        tagFilterWhere(query.tagId),
         query.createdBy === "me" ? { createdById: user.id } : {},
       ],
     };

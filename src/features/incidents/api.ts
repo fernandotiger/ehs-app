@@ -161,7 +161,7 @@ export function useCreateIncident() {
   return useMutation({ mutationFn: (input: IncidentCreateInput) => api.post<IncidentWriteResult>("/api/incidents", input), onSuccess: invalidate });
 }
 
-export type IncidentUpdatePayload = Omit<IncidentCreateInput, "clientId" | "formVersionId" | "submit" | "evidenceUploadIds"> & { expectedVersion: number };
+export type IncidentUpdatePayload = Omit<IncidentCreateInput, "clientId" | "formVersionId" | "submit" | "evidenceUploadIds" | "anonymous"> & { expectedVersion: number };
 
 export function useUpdateIncident(id: string) {
   const invalidate = useInvalidate();

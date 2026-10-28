@@ -23,7 +23,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { BrandMark } from "./brand-logo";
-import { TOP_ITEMS, allNavItems, findActiveHref, visibleSections, type NavItem, type NavSection } from "./nav-config";
+import { TOP_ITEMS, allNavItems, changesPage, findActiveHref, visibleSections, type NavItem, type NavSection } from "./nav-config";
 
 export function initials(name: string) {
   return name
@@ -34,8 +34,21 @@ export function initials(name: string) {
     .join("");
 }
 
+/**
+ * After picking a page: the phone menu closes; on desktop the sidebar folds to its icon strip – the
+ * same state as the Toggle Sidebar button (and its saved cookie), so that button opens it again.
+ */
+function useCloseAfterNavigate() {
+  const { isMobile, setOpen, setOpenMobile } = useSidebar();
+  const pathname = usePathname();
+  return (event: React.MouseEvent, href: string) => {
+    if (isMobile) setOpenMobile(false);
+    else if (changesPage(event, href, pathname)) setOpen(false);
+  };
+}
+
 function NavLink({ item, activeHref }: { item: NavItem; activeHref: string | null }) {
-  const { setOpenMobile } = useSidebar();
+  const closeAfterNavigate = useCloseAfterNavigate();
   const active = item.href === activeHref;
   return (
     <SidebarMenuItem>
@@ -45,7 +58,7 @@ function NavLink({ item, activeHref }: { item: NavItem; activeHref: string | nul
         tooltip={item.title}
         className="h-10 rounded-lg data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-brand"
       >
-        <Link href={item.href} onClick={() => setOpenMobile(false)}>
+        <Link href={item.href} onClick={(e) => closeAfterNavigate(e, item.href)}>
           <span
             className={
               active
@@ -101,6 +114,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useCurrentUser();
   const { branding } = useBranding();
+  const closeAfterNavigate = useCloseAfterNavigate();
   const sections = visibleSections(user);
   const activeHref = findActiveHref(pathname, allNavItems(user));
   // A section with a single item of the same name (Configuration) is a plain link, not a folder.
@@ -109,7 +123,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="gap-4 px-4 pt-5 group-data-[collapsible=icon]:px-2">
-        <Link href="/dashboard" className="flex min-w-0 items-center gap-2 text-brand" title={user.organizationName}>
+        <Link href="/dashboard" className="flex min-w-0 items-center gap-2 text-brand" title={user.organizationName} onClick={(e) => closeAfterNavigate(e, "/dashboard")}>
           {branding.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- authorised API route, not a static asset
             <img src={branding.logoUrl} alt="" className="size-8 shrink-0 rounded object-contain" />

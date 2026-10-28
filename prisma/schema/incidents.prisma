@@ -127,7 +127,13 @@ model Incident {
   isConfidential          Boolean          @default(false)
   isDraft                 Boolean          @default(true)
   submittedAt             DateTime?
-  reporterId              String
+  /// Null when the report was made anonymously (see isAnonymous / anonymousReporterKey).
+  reporterId              String?
+  /// Reported anonymously: nobody handling the incident sees who reported it.
+  isAnonymous             Boolean          @default(false)
+  /// Anonymous reports only: keyed HMAC of the reporter (server secret), so the reporter can still
+  /// open and follow their own report without the report naming them.
+  anonymousReporterKey    String?
   immediateAction         String?
   /// First aid / treatment / outcome.
   firstAid                String?
@@ -157,7 +163,7 @@ model Incident {
 
   type          IncidentType           @relation(fields: [typeId], references: [id], onDelete: Restrict)
   subtype       IncidentSubtype?       @relation(fields: [subtypeId], references: [id], onDelete: Restrict)
-  reporter      User                   @relation("IncidentReporter", fields: [reporterId], references: [id])
+  reporter      User?                  @relation("IncidentReporter", fields: [reporterId], references: [id], onDelete: Restrict)
   people        IncidentPerson[]
   investigators IncidentInvestigator[]
   investigation Investigation?
@@ -169,6 +175,7 @@ model Incident {
   @@index([organizationId, occurredAt])
   @@index([organizationId, typeId])
   @@index([reporterId])
+  @@index([organizationId, anonymousReporterKey])
   @@map("incidents")
 }
 

@@ -62,7 +62,8 @@ export interface EvidenceDto {
   sizeBytes: number | null;
   /** Authorised download route (files only). */
   downloadUrl: string | null;
-  uploadedBy: { id: string; name: string };
+  /** Null for files added with an anonymous incident report. */
+  uploadedBy: { id: string; name: string } | null;
   createdAt: string;
 }
 

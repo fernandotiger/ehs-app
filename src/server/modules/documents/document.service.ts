@@ -11,6 +11,7 @@ import { audiencePopulationWhere, type AudienceRow } from "./document-access.pol
 import { DOCUMENT_AUDIT, DOCUMENT_ENTITY, DOCUMENT_NOTIFICATIONS } from "./document-audit-actions";
 import { audienceCreateRows, audienceInputFromRows, audienceRowsFromInput, emptyToNull } from "./document-mappers";
 import { documentLink, notifyUsers } from "./document-requirement";
+import { setDocumentTags } from "./document-tags";
 import type { CategoryDto, CreatedDocumentDto } from "./document.dto";
 import { currentSurveyWhere } from "./survey-summary";
 import { auditSurveyCreated, createSurveyRows, notifySurveyAudience, notifySurveyOnPublish } from "./survey.service";
@@ -175,6 +176,7 @@ export const documentService = {
         });
         await tx.document.update({ where: { id: document.id }, data: { currentVersionId: version.id } });
       }
+      const tags = await setDocumentTags(tx, document.id, input.tags, organizationId);
 
       await recordAudit(
         {
@@ -186,6 +188,7 @@ export const documentService = {
             title: document.title,
             referenceCode: document.referenceCode,
             category: emptyToNull(input.categoryName),
+            ...(tags.after.length ? { tags: tags.after } : {}),
             audience: input.audience,
             acknowledgement: input.ack,
             file: file ? { versionNumber: 1, fileName: file.fileName, sizeBytes: file.sizeBytes } : null,
@@ -215,7 +218,7 @@ export const documentService = {
    */
   async createSurvey(input: CreateSurveyDocumentInput, actor: CurrentUser, meta: RequestMeta): Promise<CreatedDocumentDto> {
     return documentService.create(
-      { ...input, uploadId: input.uploadId ?? null, title: input.survey.title, description: input.survey.intro, referenceCode: "", categoryName: "" },
+      { ...input, uploadId: input.uploadId ?? null, title: input.survey.title, description: input.survey.intro, referenceCode: "", categoryName: "", tags: [] },
       actor,
       meta,
     );
@@ -258,6 +261,7 @@ export const documentService = {
           data: audienceCreateRows(audienceRowsFromInput(input.audience), actor.organizationId).map((r) => ({ ...r, documentId: id })),
         });
       }
+      const tags = await setDocumentTags(tx, id, input.tags, actor.organizationId);
 
       const changes: Record<string, { from: unknown; to: unknown }> = {};
       const track = (key: string, from: unknown, to: unknown) => {
@@ -267,6 +271,7 @@ export const documentService = {
       track("description", before.description, emptyToNull(input.description));
       track("referenceCode", before.referenceCode, emptyToNull(input.referenceCode));
       track("category", before.category?.name ?? null, emptyToNull(input.categoryName));
+      track("tags", tags.before, tags.after);
       track("requiresAcknowledgement", before.requiresAcknowledgement, input.ack.requiresAcknowledgement);
       track("ackDueDays", before.ackDueDays, input.ack.ackDueDays);
       track("reminderIntervalDays", before.reminderIntervalDays, input.ack.reminderIntervalDays);

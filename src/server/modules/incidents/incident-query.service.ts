@@ -23,6 +23,7 @@ import type { CsvValue } from "@/server/modules/documents/csv";
 import { settingsService } from "@/server/modules/settings/settings.service";
 import { asAnswers, asSnapshot, checkAnswers, hiddenAnswerKeys } from "./forms";
 import {
+  canAddReportEvidence,
   canArchiveIncident,
   canCloseIncident,
   canEditReport,
@@ -33,6 +34,8 @@ import {
   actionVisibleWhere,
   confidentialVisibleWhere,
   incidentVisibleWhere,
+  isReporter,
+  reportedByWhere,
 } from "./incident-access.policy";
 import { causeCatalogue, reporteeCatalogue } from "./incident-lookups";
 import { recordFacts } from "./incident.service";
@@ -91,7 +94,7 @@ export function incidentListWhere(user: CurrentUser, q: Omit<IncidentListQuery, 
   if (q.siteId) and.push({ siteId: q.siteId });
   if (q.departmentId) and.push({ departmentId: q.departmentId });
   if (q.ownerId) and.push({ OR: [{ investigators: { some: { userId: q.ownerId } } }, { investigation: { investigatorId: q.ownerId } }] });
-  if (q.mine === "true") and.push({ OR: [{ reporterId: user.id }, { investigators: { some: { userId: user.id } } }] });
+  if (q.mine === "true") and.push({ OR: [...reportedByWhere(user), { investigators: { some: { userId: user.id } } }] });
   if (q.from) and.push({ occurredAt: { gte: dayStart(q.from) } });
   if (q.to) and.push({ occurredAt: { lt: dayEnd(q.to) } });
   if (q.q) {
@@ -138,6 +141,7 @@ function toListItem(row: ListRow, names: Awaited<ReturnType<typeof loadNames>>, 
     siteName: row.siteId ? (names.sites.get(row.siteId) ?? null) : null,
     departmentName: row.departmentId ? (names.departments.get(row.departmentId) ?? null) : null,
     reporter: row.reporter,
+    isAnonymous: row.isAnonymous,
     investigators: row.investigators.map((i) => i.user),
     investigationStatus: row.investigation?.status ?? null,
     investigationTargetDate: target,
@@ -394,6 +398,8 @@ export const incidentQueryService = {
       isDraft: row.isDraft,
       submittedAt: iso(row.submittedAt),
       reporter: row.reporter,
+      isAnonymous: row.isAnonymous,
+      reportedByMe: isReporter(user, facts),
       immediateAction: seeConfidential ? row.immediateAction : null,
       firstAid: seeConfidential ? row.firstAid : null,
       nurseNotified: row.nurseNotified,
@@ -436,7 +442,7 @@ export const incidentQueryService = {
         close: canCloseIncident(user, facts),
         raiseAction: canRaiseAction(user, facts),
         seeConfidential,
-        addEvidence: row.type.attachmentsAllowed && !facts.closed && !facts.archived && (canEditReport(user, facts) || canInvestigate(user, facts) || row.reporterId === user.id),
+        addEvidence: row.type.attachmentsAllowed && canAddReportEvidence(user, facts),
       },
     };
   },
@@ -478,7 +484,8 @@ export const incidentQueryService = {
     const overdueInvestigations = await prisma.incident.count({ where: overdueInvestigation });
     const openActions = await prisma.correctiveAction.count({ where: { AND: [actionsVisible, { state: { in: ["OPEN", "IN_PROGRESS"] } }] } });
     const pendingReviews = await prisma.correctiveAction.count({ where: { AND: [actionsVisible, { state: "AWAITING_EFFECTIVENESS" }] } });
-    const drafts = await prisma.incident.count({ where: { AND: [active, { isDraft: true, reporterId: user.id }] } });
+    const myDraftsWhere: Prisma.IncidentWhereInput = { AND: [active, { isDraft: true, OR: reportedByWhere(user) }] };
+    const drafts = await prisma.incident.count({ where: myDraftsWhere });
 
     const needsAttention: IncidentOverviewDto["needsAttention"] = [];
     const overdueRows = await prisma.incident.findMany({ where: overdueInvestigation, orderBy: { investigationTargetDate: "asc" }, take: 4, select: { id: true, reference: true, title: true, investigationTargetDate: true } });
@@ -507,7 +514,7 @@ export const incidentQueryService = {
       const ready = await prisma.incident.findMany({ where: { AND: [active, { status: "READY_TO_CLOSE" }] }, orderBy: { updatedAt: "asc" }, take: 3, select: { id: true, reference: true, title: true } });
       for (const r of ready) needsAttention.push({ kind: "close", id: r.id, href: incidentHref(r.id), reference: r.reference, title: r.title, detail: "Ready to close", due: null });
     }
-    const myDrafts = await prisma.incident.findMany({ where: { AND: [active, { isDraft: true, reporterId: user.id }] }, orderBy: { updatedAt: "desc" }, take: 3, select: { id: true, reference: true, title: true } });
+    const myDrafts = await prisma.incident.findMany({ where: myDraftsWhere, orderBy: { updatedAt: "desc" }, take: 3, select: { id: true, reference: true, title: true } });
     for (const r of myDrafts) needsAttention.push({ kind: "draft", id: r.id, href: incidentHref(r.id), reference: r.reference, title: r.title || "Untitled draft", detail: "Your draft – not submitted", due: null });
 
     const recentRows = await prisma.incident.findMany({ where: { AND: [active, { isDraft: false }] }, include: listInclude, orderBy: [{ submittedAt: "desc" }], take: 5 });
@@ -601,7 +608,7 @@ export const incidentQueryService = {
           case "submittedAt":
             return r.submittedAt?.toISOString().slice(0, 10) ?? "";
           case "reporter":
-            return r.reporter.name;
+            return r.isAnonymous ? "Anonymous" : (r.reporter?.name ?? "");
           case "site":
             return r.siteId ? (names.sites.get(r.siteId) ?? "") : "";
           case "location":

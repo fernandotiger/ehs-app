@@ -13,6 +13,7 @@ import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { RISK_DOMAIN_LABELS, RISK_METHOD_LABELS, reviewFrequencyLabel, type RiskDomain } from "@/lib/risk/scoring";
 import { cn } from "@/lib/utils";
 import { useRiskMatrix, useRiskMatrixForm } from "../../api";
+import { HazardListPanel } from "./hazard-list-panel";
 
 /**
  * Configuration → Risk matrix & review rules. Lists the Risk forms; the selected form's rules are
@@ -32,7 +33,7 @@ export function RiskMatrixConfig() {
       {guard.dialog}
       <PageHeader
         title="Risk matrix & review rules"
-        description="Medium / High / Critical starting values, review frequency, reminder notice, sites and footnote of each Risk form. Changes apply to new assessments only."
+        description="Medium / High / Critical starting values, review frequency, reminder notice, sites, footnote and hazard list of each Risk form."
         backHref="/configuration"
         backLabel="Configuration"
         actions={
@@ -54,7 +55,7 @@ export function RiskMatrixConfig() {
           <Card className="h-fit gap-0 py-0">
             <CardHeader className="border-b py-4">
               <CardTitle>Risk forms</CardTitle>
-              <CardDescription>Choose a form to inspect its method and rules.</CardDescription>
+              <CardDescription>Choose a form to inspect its method, rules and hazards.</CardDescription>
             </CardHeader>
             <ul className="divide-y">
               {list.data.map((f) => (
@@ -87,6 +88,7 @@ export function RiskMatrixConfig() {
             ) : (
               <>
                 <RiskRulesPanel key={`${form.data.id}:${form.data.version}`} form={form.data} blocked={false} onDirtyChange={setDirty} onReload={() => form.refetch()} />
+                <HazardListPanel formId={form.data.id} domain={list.data.find((f) => f.id === form.data.id)?.domain ?? "HEALTH_SAFETY"} />
                 <CardContent className="px-1 text-xs text-muted-foreground">
                   A company matrix reference image is an on-screen aid only in the specification – it never calculates scores, so it is not stored here.
                 </CardContent>

@@ -1,10 +1,14 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronsUpDown, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { normaliseLabel } from "@/lib/lookups";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { RiskFormSettings } from "@/lib/forms/settings";
@@ -50,8 +54,24 @@ function domainKey(domain: string) {
   return domain === "ENVIRONMENT" ? "ENVIRONMENT" : "HEALTH_SAFETY";
 }
 
-/** Hazard / aspect cards with method-specific inputs and a live score chip. */
-export function HazardEditor({ rules, value, onChange, showErrors }: { rules: RiskFormSettings; value: HazardDraft[]; onChange: (next: HazardDraft[]) => void; showErrors: boolean }) {
+/**
+ * Hazard / aspect cards with method-specific inputs and a live score chip. `hazardOptions`: the risk
+ * type's switched-on hazards (Configuration → Risk matrix) – the name is picked from them; without
+ * any, it is typed.
+ */
+export function HazardEditor({
+  rules,
+  value,
+  onChange,
+  showErrors,
+  hazardOptions = [],
+}: {
+  rules: RiskFormSettings;
+  value: HazardDraft[];
+  onChange: (next: HazardDraft[]) => void;
+  showErrors: boolean;
+  hazardOptions?: readonly string[];
+}) {
   const word = hazardWordTitle(rules.domain);
   const update = (key: string, patch: Partial<HazardDraft>) => onChange(value.map((h) => (h.key === key ? { ...h, ...patch } : h)));
   const move = (index: number, delta: number) => {
@@ -88,7 +108,11 @@ export function HazardEditor({ rules, value, onChange, showErrors }: { rules: Ri
             <CardContent className="space-y-4 p-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <TextField id={`h-${h.key}-activity`} label="Activity / job step *" value={h.activity} onChange={(v) => update(h.key, { activity: v })} invalid={showErrors && !h.activity.trim()} placeholder="e.g. Loading trailers" />
-                <TextField id={`h-${h.key}-name`} label={`${word} *`} value={h.name} onChange={(v) => update(h.key, { name: v })} invalid={showErrors && !h.name.trim()} placeholder={rules.domain === "ENVIRONMENT" ? "e.g. Release to surface water" : "e.g. Moving vehicles"} />
+                {hazardOptions.length ? (
+                  <HazardNamePicker id={`h-${h.key}-name`} label={`${word} *`} word={word.toLowerCase()} options={hazardOptions} value={h.name} onChange={(v) => update(h.key, { name: v })} invalid={showErrors && !h.name.trim()} />
+                ) : (
+                  <TextField id={`h-${h.key}-name`} label={`${word} *`} value={h.name} onChange={(v) => update(h.key, { name: v })} invalid={showErrors && !h.name.trim()} placeholder={rules.domain === "ENVIRONMENT" ? "e.g. Release to surface water" : "e.g. Moving vehicles"} />
+                )}
                 <TextField id={`h-${h.key}-consequence`} label="Consequence *" value={h.consequence} onChange={(v) => update(h.key, { consequence: v })} invalid={showErrors && !h.consequence.trim()} placeholder={rules.domain === "ENVIRONMENT" ? "e.g. Water contamination" : "e.g. Serious injury"} />
                 <TextField id={`h-${h.key}-controls`} label="Current controls *" value={h.controls} onChange={(v) => update(h.key, { controls: v })} invalid={showErrors && !h.controls.trim()} multiline placeholder="What is already in place?" />
               </div>
@@ -106,6 +130,55 @@ export function HazardEditor({ rules, value, onChange, showErrors }: { rules: Ri
         <Plus /> Add {word.toLowerCase()}
       </Button>
     </div>
+  );
+}
+
+/** Searchable dropdown of the risk type's hazards. A name the hazard already has stays, even if it is no longer offered. */
+function HazardNamePicker({ id, label, word, options, value, onChange, invalid }: { id: string; label: string; word: string; options: readonly string[]; value: string; onChange: (v: string) => void; invalid?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const current = value.trim();
+  const listed = options.some((o) => normaliseLabel(o) === normaliseLabel(current));
+  const choose = (name: string) => {
+    onChange(name);
+    setOpen(false);
+  };
+  return (
+    <Field data-invalid={invalid || undefined}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button id={id} type="button" variant="outline" role="combobox" aria-expanded={open} aria-invalid={invalid || undefined} className="h-9 w-full justify-between font-normal">
+            <span className={cn("truncate", !current && "text-muted-foreground")}>{current || `Choose a ${word}…`}</span>
+            <ChevronsUpDown className="size-4 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-(--radix-popover-trigger-width) min-w-64 p-0" align="start">
+          <Command>
+            <CommandInput placeholder={`Search ${word}s…`} />
+            <CommandList>
+              <CommandEmpty>No matching {word}. Ask an administrator to add it to the list.</CommandEmpty>
+              {current && !listed && (
+                <CommandGroup heading="Current">
+                  <CommandItem value={`__current ${current}`} onSelect={() => choose(current)}>
+                    <Check className="size-4" />
+                    <span className="flex-1 truncate">{current}</span>
+                    <span className="text-xs text-muted-foreground">no longer in the list</span>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+              <CommandGroup heading={`${word.charAt(0).toUpperCase()}${word.slice(1)}s`}>
+                {options.map((o) => (
+                  <CommandItem key={o} value={o} onSelect={() => choose(o)}>
+                    <Check className={cn("size-4", normaliseLabel(o) === normaliseLabel(current) ? "opacity-100" : "opacity-0")} />
+                    <span className="truncate">{o}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </Field>
   );
 }
 

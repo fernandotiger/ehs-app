@@ -35,8 +35,8 @@ answers 422 `BUSINESS_RULE_VIOLATION` with `details.blockers`. The cached `statu
 `refreshIncidentStatus(tx, ids)` inside every mutating transaction (incident, investigation, action, link).
 
 ## Access (`incident-access.policy.ts`, tested)
-Incidents: `scopeWhere(incident.view)` OR reporter OR assigned investigator (same `where` for lists, detail, export,
-evidence/comments). Confidential: people, narrative, answers, immediate action/first aid hidden unless
+Incidents: `scopeWhere(incident.view)` OR reporter (by id, or by `anonymousReporterKey` for anonymous reports) OR
+assigned investigator (same `where` for lists, detail, export, evidence/comments). Confidential: people, narrative, answers, immediate action/first aid hidden unless
 `incident.view_confidential` at the placement, reporter or investigator; searchable-answer search respects it.
 Actions: `scopeWhere(incident.action.view)` OR owner / reviewer / task owner OR linked to a visible incident.
 Rights: edit report = reporter while draft or `incident.triage` at placement (never when closed/archived); investigate
@@ -90,6 +90,58 @@ bindings, subtypes); once active it appears in the report wizard (`/report-setup
 - Pure rules + tests: `type-rules.ts` / `type-rules.test.ts` (`cleanTypeName`, `typeKeyFor`, `typeNameClash`,
   `typeSettingsProblem` – the active-needs-report-form / required-needs-investigation-form gates shared by create
   and update).
+
+## Anonymous reporting (added 28 Oct 2026)
+The spec does not cover it; the design follows the survey privacy approach (`docs/modules/document-surveys.md`):
+store no link where possible, and keep only what the reporter needs to follow their own report.
+
+**What the reporter sees.** "Report anonymously" is a tick box on the wizard's first step (Type of event) and again on
+Review & submit, with the caveat "What you write, the people you name and your photos or files can still point to you.
+Once the report is saved this cannot be changed." After the first save the choice is shown read-only. The reporter
+still finds the report under Incidents (register, *Reported by me or assigned to me*, overview "Your draft"), can
+finish and submit an anonymous draft, and reads "Reported by: Anonymous (you – nobody else can see that)".
+
+**What everyone else sees.** "Reported by: Anonymous" and an *Anonymous* badge – for every role, administrators
+included. The History tab and Configuration → Audit log show "Anonymous reporter"; files added with the report show no
+uploader; the CSV export writes "Anonymous" in the *Reported by* column.
+
+**How it is stored** (migration `anonymous_incident_reports`, additive: two new columns + one index, two columns made
+nullable – existing rows unchanged):
+- `Incident.reporterId` is **null**, `isAnonymous = true`, and `anonymousReporterKey` = HMAC-SHA256(server secret,
+  user id) (`anonymous-reporter.ts`). Visibility "reported by me" = `reporterId = me OR anonymousReporterKey = key(me)`
+  (`reportedByWhere`, `isReporter` in the policy), so the reporter keeps every reporter right (open, edit/submit/archive
+  their draft, see confidential details and – open question 1 – the investigation and actions).
+- What the reporter does on their own anonymous report (create, draft edits, submit, archive a draft) is audited with
+  actor "Anonymous reporter", `actorId` null and **no IP address / browser** (`actsAsAnonymousReporter`). When someone
+  who triages the incident acts, the audit names them as usual.
+- Files attached in the wizard: `Attachment.uploadedById` null (column now nullable) and the upload session (which
+  names the uploader) is deleted when used (`uploadService.consume(..., { forget: true })`).
+- The wizard/outbox `clientId` is stored keyed (`anonymousClientId`) and the offline sync log keeps
+  `{ anonymous: true, isDraft, created }` instead of the incident id, so "user X synced operation Y" does not point at
+  the report.
+
+**Trade-offs chosen**
+1. **Hidden from everyone using OleoQ, not from someone who controls the server.** Whoever has database access AND the
+   server secret (`AUDIT_SIGNING_SECRET`, else `BETTER_AUTH_SECRET`) can compute every user's key and find the reporter.
+   Hosting request logs (Vercel/AWS) also hold IP addresses. Without the secret, the database only shows that two
+   anonymous reports came from the same person (the key is per user, so "my reports" stays one indexed lookup).
+2. **Changing the secret** cuts reporters off from their old anonymous reports (handlers unaffected) – one more reason
+   to keep the secrets identical across environments (HANDOFF).
+3. **Chosen once.** A draft saved under a name already has the name in its signed, append-only history, so the choice
+   cannot be switched on later; switching off is not offered either (keep it simple). To change it: archive the draft
+   and report again.
+4. **No adding files after reporting.** The evidence list names who added each item, so the reporter of an anonymous
+   report adds files only in the report itself (stored without a name) – unless they also triage or investigate it
+   (`canAddReportEvidence`; the API refuses with 403). The Evidence tab explains why.
+5. **Comments are allowed but warned about.** A comment shows the author; the reporter sees "You reported this
+   anonymously. A comment shows your name …" above the comment box. Not blocked – a reporter may choose to reveal
+   themselves to add detail.
+6. **Content can identify.** Time of the report, the department/location chosen, the narrative, the people listed and
+   the photos may narrow it down in a small team – the wizard says so; nothing tries to scrub it.
+7. **No way to contact an anonymous reporter** (no two-way anonymous messaging) and no notifications to them about
+   progress; they check the report themselves.
+8. **Available for every type and every reporter**; no setting to switch it off yet (open question). Follow-up drafts
+   raised from other modules are never anonymous. Anonymous does not imply Confidential (separate tick box).
 
 ## Follow-up contract (`follow-up.service.ts`) – for Audit / Inspection / Law (later)
 All run in the CALLER's transaction and are idempotent through `recordLinkService.ensure` (unique source key +
@@ -198,6 +250,12 @@ actions (tasks, preventive trend action). Oleo Demo: 2 incidents. Seeded inciden
   workflow's own controls (never typed twice). Repeated defaults in older snapshots are hidden, answers kept.
 
 ## Open questions / notes
+- Anonymous reporting: should admins be able to switch it off (company-wide or per type)? Should an anonymous reporter
+  get progress notifications (would store a notification row naming them)? Is "hidden in the app, not from someone
+  with database access + server secret" strong enough, or is a whistleblowing-grade channel (no account link at all,
+  receipt code instead) wanted? Should comments by the anonymous reporter be blocked rather than warned about?
+- Anonymous smoke test (28 Oct 2026, **local DB only**): INC-2026-0016 "Anonymous smoke test - pallet stacked too high"
+  (admin, wizard, 1 photo) and INC-2026-0017 "John anonymous test" (john, API); both Open.
 - Port of Cork demo set: Audit / Law follow-ups need a target type – re-add "Audit Non Conformance" / "Non Compliance"
   or route audits to Inspection Finding → "Audit Finding" (as the sheet does)? Should First Aid Outcome become a choice
   list (needs a structured first-aid field)? The old Cork-only "Describe the marine area" site question is no longer

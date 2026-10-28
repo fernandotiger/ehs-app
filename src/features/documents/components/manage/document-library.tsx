@@ -19,8 +19,9 @@ import { useComplianceSummary, useDocumentLibrary, type LibraryItem } from "../.
 import { audienceLabel, DOCUMENT_STATUS_META, formatDate } from "../../format";
 import { ComplianceProgress } from "../compliance-progress";
 import { FileTypeIcon } from "../file-type-icon";
-import { CategoryFilter, FilterSelect, SearchBox } from "../filters";
+import { CategoryFilter, FilterSelect, SearchBox, TagFilter } from "../filters";
 import { SurveyIndicator } from "../survey/survey-indicator";
+import { TagChips } from "../tag-chips";
 
 const PAGE_SIZE = 20;
 
@@ -54,9 +55,11 @@ export function DocumentLibrary() {
   const [search, setSearch] = useState("");
   const q = useDeferredValue(search.trim());
   const [categoryId, setCategoryId] = useState<string | undefined>();
+  const [tagId, setTagId] = useState<string | undefined>();
   const [status, setStatus] = useState<LibraryStatusFilter>("ACTIVE");
   const [page, setPage] = useState(1);
-  const library = useDocumentLibrary({ page, pageSize: PAGE_SIZE, q: q || undefined, categoryId, status, type: "document" });
+  const library = useDocumentLibrary({ page, pageSize: PAGE_SIZE, q: q || undefined, categoryId, tagId, status, type: "document" });
+  const filtered = Boolean(q || categoryId || tagId);
   const summary = useComplianceSummary(5, canReport);
   const totals = summary.data?.totals;
 
@@ -92,19 +95,27 @@ export function DocumentLibrary() {
       )}
 
       <Card className="mb-4 gap-0 p-3">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
           <SearchBox
             value={search}
             onChange={(v) => {
               setSearch(v);
               setPage(1);
             }}
-            placeholder="Search by name, reference or category"
+            placeholder="Search by name, reference, category or tag"
           />
           <CategoryFilter
             value={categoryId}
             onChange={(v) => {
               setCategoryId(v);
+              setPage(1);
+            }}
+          />
+          <TagFilter
+            scope="library"
+            value={tagId}
+            onChange={(v) => {
+              setTagId(v);
               setPage(1);
             }}
           />
@@ -129,9 +140,9 @@ export function DocumentLibrary() {
         <EmptyState
           icon={FileStack}
           title="No documents found"
-          description={q || categoryId ? "Try a different search or filter." : "Upload your first document to get started."}
+          description={filtered ? "Try a different search or filter." : "Upload your first document to get started."}
           action={
-            canManage && !q && !categoryId ? (
+            canManage && !filtered ? (
               <Button asChild>
                 <Link href="/documents/manage/new">
                   <FileUp /> Upload document
@@ -153,6 +164,7 @@ export function DocumentLibrary() {
                       <p className="truncate text-xs text-muted-foreground">
                         {[item.referenceCode, item.category?.name, item.currentVersion ? `v${item.currentVersion.versionNumber}` : null].filter(Boolean).join(" · ")}
                       </p>
+                      <TagChips tags={item.tags} className="mt-1.5" />
                       <SurveyIndicator survey={item.survey} className="mt-1" />
                     </div>
                     <StatusPill status={item.status} />
@@ -187,6 +199,7 @@ export function DocumentLibrary() {
                         <span className="min-w-0">
                           <span className="block truncate font-medium">{item.title}</span>
                           <span className="block truncate text-xs text-muted-foreground">{[item.referenceCode, item.category?.name].filter(Boolean).join(" · ") || "Uncategorised"}</span>
+                          <TagChips tags={item.tags} className="mt-1" />
                           <SurveyIndicator survey={item.survey} className="mt-1" />
                         </span>
                       </Link>

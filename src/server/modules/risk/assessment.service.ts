@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma, type RiskAssessmentStatus } from "@/generated/prisma/client";
 import { pendingUploads, type FormValues, type QuestionnaireSnapshot } from "@/lib/forms";
 import type { RiskFormSettings } from "@/lib/forms/settings";
+import { checkHazardNames } from "@/lib/risk/hazard-options";
 import { CHECKLIST_RESULTS, hazardWordTitle, type AssessmentStatus, type ChecklistResultKey } from "@/lib/risk/labels";
 import { FMEA_FACTORS, type RiskBand, type RiskMethod } from "@/lib/risk/scoring";
 import type { AssessmentCreateInput, AssessmentDecision, AssessmentUpdateInput, HazardInput, PeriodicReviewInput } from "@/lib/validation/risk";
@@ -19,6 +20,7 @@ import { recordLinkService } from "@/server/modules/record-links/record-link.ser
 import { uploadService } from "@/server/modules/uploads/upload.service";
 import { requireTenantId } from "@/server/tenancy/context";
 import { asAnswers, asSnapshot, captureRiskForm, checkRiskAnswers, composeAnswers, readRules, rulesOf } from "./forms";
+import { formIdOfVersion, hazardOptionsOf } from "./hazard-options.service";
 import type { HazardSnapshot } from "./risk.dto";
 import {
   assessmentVisibleWhere,
@@ -288,7 +290,21 @@ async function prepare(
     listLabel(db, "risk.work-area", input.workArea, ctx.existing?.workArea, "work area"),
   ]);
 
-  const hazards = prepareHazards(method, domain, input.hazards, ctx.existing?.hazards.map((h) => h.id) ?? []);
+  // Hazard names come from the form's hazard list when it has one (names already saved stay valid).
+  const formId = await formIdOfVersion(db, snapshot.versionId);
+  const named = checkHazardNames(
+    input.hazards.map((h) => ({ id: h.id ?? null, name: h.name })),
+    new Map(ctx.existing?.hazards.map((h) => [h.id, h.name]) ?? []),
+    formId ? await hazardOptionsOf(db, formId) : [],
+    hazardWordTitle(domain).toLowerCase(),
+  );
+  if (named.problems.length) throw new ValidationError(named.problems.join(" "));
+  const hazards = prepareHazards(
+    method,
+    domain,
+    input.hazards.map((h, i) => ({ ...h, name: named.names[i]! })),
+    ctx.existing?.hazards.map((h) => h.id) ?? [],
+  );
   const { score } = scoreAssessment(method, domain, hazards);
   const band = classify(score, rules);
   const top = hazards.filter((h) => h.score !== null && h.score === score).map((h) => matrixCell(method, h)).find(Boolean) ?? null;

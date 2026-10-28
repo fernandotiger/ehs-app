@@ -165,7 +165,11 @@ export const uploadService = {
    * Claims an uploaded file for a domain record. Must be called inside the domain
    * transaction so a failed operation leaves the upload unconsumed.
    */
-  async consume(uploadId: string, user: Pick<CurrentUser, "id">, purpose: UploadPurpose, db: DbClient): Promise<ConsumedFile> {
+  /**
+   * `forget`: delete the upload session once used, so nothing links the uploader to the file
+   * (files added with an anonymous incident report).
+   */
+  async consume(uploadId: string, user: Pick<CurrentUser, "id">, purpose: UploadPurpose, db: DbClient, options: { forget?: boolean } = {}): Promise<ConsumedFile> {
     const session = await db.uploadSession.findUnique({ where: { id: uploadId } });
     if (!session || session.userId !== user.id) throw new ValidationError("Invalid upload reference");
     if (session.purpose !== purpose) throw new ValidationError("Upload was created for a different purpose");
@@ -176,6 +180,7 @@ export const uploadService = {
       data: { status: "CONSUMED" },
     });
     if (claimed.count !== 1) throw new ValidationError("Upload was already used");
+    if (options.forget) await db.uploadSession.delete({ where: { id: uploadId } });
 
     return {
       storageDriver: session.storageDriver,

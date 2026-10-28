@@ -113,6 +113,26 @@ export function findActiveHref(pathname: string, items: NavItem[]): string | nul
   return best;
 }
 
+/** The parts of a click on a menu link that decide whether the page on the right changes. */
+export interface NavClick {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  defaultPrevented: boolean;
+}
+
+/**
+ * A plain left click on a link to another page (not opened in a new tab or window, not the page
+ * already shown). On desktop such a click folds the sidebar to its icon strip (owner's choice).
+ */
+export function changesPage(click: NavClick, href: string, pathname: string): boolean {
+  if (click.defaultPrevented || click.button !== 0) return false;
+  if (click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return false;
+  return href !== pathname;
+}
+
 export function allNavItems(user: NavUser): NavItem[] {
   return [...TOP_ITEMS, ...visibleSections(user).flatMap((s) => s.items)];
 }

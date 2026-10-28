@@ -19,6 +19,8 @@ export const incidentSyncHandlers: SyncHandlerMap = {
       const first = parsed.error.issues[0];
       throw new ValidationError(first ? `${first.path.join(".") || "report"}: ${first.message}` : "Invalid offline report", parsed.error.issues);
     }
-    return incidentService.create(parsed.data, ctx.user, ctx.meta, { source: "OFFLINE_SYNC" });
+    const result = await incidentService.create(parsed.data, ctx.user, ctx.meta, { source: "OFFLINE_SYNC" });
+    // The sync log stores this result next to the user's id – an anonymous report must not be named in it.
+    return parsed.data.anonymous ? { anonymous: true, isDraft: result.isDraft, created: result.created } : result;
   },
 };

@@ -23,6 +23,7 @@ import type { AssessmentWriteResult } from "@/server/modules/risk/assessment.ser
 import type {
   AssessmentDetailDto,
   AssessmentListItem,
+  HazardOptionDto,
   ObjectiveDetailDto,
   ObjectiveDto,
   ProgrammeDetailDto,
@@ -65,6 +66,10 @@ export const riskKeys = {
   /** Under "forms" so Form Builder mutations (risk rules) refresh it too. */
   matrix: ["forms", "risk-matrix"] as const,
   matrixForm: (id: string) => ["forms", "risk-matrix", id] as const,
+  /** Configuration → Risk matrix: a form's hazard / aspect options. */
+  matrixHazards: (formId: string) => ["forms", "risk-matrix", formId, "hazards"] as const,
+  /** Assessment wizard: active options of the form version (under "risk" so option edits refresh it). */
+  hazardOptions: (versionId: string) => ["risk", "hazard-options", versionId] as const,
 };
 
 const noPersist = { persist: false } as const;
@@ -169,6 +174,42 @@ export function resolveScan(qr: string) {
 }
 
 // ── Writes ──────────────────────────────────────────────────────────────────
+
+/** Active hazard / aspect options of the assessment's Risk form; empty = the name is typed. */
+export function useHazardOptions(formVersionId: string | null) {
+  return useQuery({
+    queryKey: riskKeys.hazardOptions(formVersionId ?? ""),
+    queryFn: ({ signal }) => api.get<{ options: string[] }>("/api/risk/hazard-options", { formVersionId: formVersionId! }, signal),
+    enabled: Boolean(formVersionId),
+    staleTime: 60_000,
+  });
+}
+
+export function useMatrixHazards(formId: string | null) {
+  return useQuery({
+    queryKey: riskKeys.matrixHazards(formId ?? ""),
+    queryFn: ({ signal }) => api.get<HazardOptionDto[]>(`/api/risk/matrix/${formId}/hazards`, undefined, signal),
+    enabled: Boolean(formId),
+    meta: noPersist,
+  });
+}
+
+/** Add / rename / switch on-off / remove a hazard option; refreshes the list and the wizard dropdowns. */
+export function useHazardOptionCommands(formId: string) {
+  const qc = useQueryClient();
+  const onSuccess = () => {
+    void qc.invalidateQueries({ queryKey: riskKeys.matrixHazards(formId) });
+    void qc.invalidateQueries({ queryKey: ["risk", "hazard-options"] });
+  };
+  return {
+    add: useMutation({ mutationFn: (label: string) => api.post<HazardOptionDto>(`/api/risk/matrix/${formId}/hazards`, { label }), onSuccess }),
+    update: useMutation({
+      mutationFn: ({ id, ...input }: { id: string; label?: string; isActive?: boolean }) => api.put<HazardOptionDto>(`/api/risk/matrix/${formId}/hazards/${id}`, input),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => api.delete<{ ok: true }>(`/api/risk/matrix/${formId}/hazards/${id}`), onSuccess }),
+  };
+}
 
 function useInvalidate() {
   const qc = useQueryClient();

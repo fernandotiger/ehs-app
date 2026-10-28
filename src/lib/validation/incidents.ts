@@ -80,6 +80,8 @@ export const incidentCreateSchema = z.object({
   submit: z.boolean().default(false),
   /** Evidence uploaded in the wizard (two-phase uploads, purpose "evidence"). */
   evidenceUploadIds: ids(20),
+  /** Report anonymously: chosen when the report is first saved and never changed afterwards. */
+  anonymous: z.boolean().default(false),
 });
 export type IncidentCreateInput = z.infer<typeof incidentCreateSchema>;
 

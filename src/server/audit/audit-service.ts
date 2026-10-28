@@ -7,7 +7,8 @@ import { resolveTenantId, TenantContextError } from "@/server/tenancy/context";
 import { signRecord } from "./signing";
 
 export interface AuditActor {
-  id: string;
+  /** Null for an actor who must stay unnamed (e.g. the reporter of an anonymous incident). */
+  id: string | null;
   name: string;
 }
 

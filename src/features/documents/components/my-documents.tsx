@@ -16,8 +16,9 @@ import { usePendingSurveyAnswers } from "../survey-api";
 import { formatDate, relativeDue } from "../format";
 import { AckStatusBadge } from "./ack-status-badge";
 import { FileTypeIcon } from "./file-type-icon";
-import { CategoryFilter, SearchBox } from "./filters";
+import { CategoryFilter, SearchBox, TagFilter } from "./filters";
 import { SurveyBadge } from "./survey/survey-badge";
+import { TagChips } from "./tag-chips";
 
 const PAGE_SIZE = 20;
 
@@ -46,6 +47,7 @@ function DocumentRow({ doc, pending, surveyPending }: { doc: MyDocumentItem; pen
               .filter(Boolean)
               .join(" · ")}
           </p>
+          <TagChips tags={doc.tags} className="mt-1.5" />
           <div className="mt-1.5 flex flex-wrap items-center gap-2 md:hidden">
             <AckStatusBadge status={doc.ackStatus} acknowledgedAt={doc.acknowledgement?.acknowledgedAt} pendingSync={pending} />
             <SurveyBadge survey={doc.survey} pendingSync={surveyPending} />
@@ -72,8 +74,10 @@ export function MyDocuments() {
   const [search, setSearch] = useState("");
   const q = useDeferredValue(search.trim());
   const [categoryId, setCategoryId] = useState<string | undefined>();
+  const [tagId, setTagId] = useState<string | undefined>();
   const [page, setPage] = useState(1);
-  const query = useMyDocuments({ page, pageSize: PAGE_SIZE, filter, q: q || undefined, categoryId });
+  const query = useMyDocuments({ page, pageSize: PAGE_SIZE, filter, q: q || undefined, categoryId, tagId });
+  const searching = Boolean(q || categoryId || tagId);
   const pending = usePendingAcknowledgements();
   const pendingSurveys = usePendingSurveyAnswers();
   const summary = query.data?.summary;
@@ -90,7 +94,7 @@ export function MyDocuments() {
         </div>
       </PageBanner>
 
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <Tabs
           value={filter}
           onValueChange={(v) => {
@@ -113,19 +117,27 @@ export function MyDocuments() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="grid gap-2 sm:grid-cols-[1fr_200px] lg:w-[480px]">
+        <div className="grid gap-2 sm:grid-cols-[1fr_180px_180px] xl:w-[600px]">
           <SearchBox
             value={search}
             onChange={(v) => {
               setSearch(v);
               reset();
             }}
-            placeholder="Search documents"
+            placeholder="Search documents or tags"
           />
           <CategoryFilter
             value={categoryId}
             onChange={(v) => {
               setCategoryId(v);
+              reset();
+            }}
+          />
+          <TagFilter
+            scope="mine"
+            value={tagId}
+            onChange={(v) => {
+              setTagId(v);
               reset();
             }}
           />
@@ -139,12 +151,12 @@ export function MyDocuments() {
       ) : query.data.items.length === 0 ? (
         <EmptyState
           icon={BookOpenCheck}
-          title={filter === "action" && !q && !categoryId ? "You're all caught up" : "No documents found"}
+          title={filter === "action" && !searching ? "You're all caught up" : "No documents found"}
           description={
-            filter === "action" && !q && !categoryId
+            filter === "action" && !searching
               ? "There is nothing waiting for your acknowledgement or answers."
-              : q || categoryId
-                ? "Try a different search or category."
+              : searching
+                ? "Try a different search, category or tag."
                 : "Documents assigned to you will appear here."
           }
         />

@@ -6,8 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { UpdateDocumentInput } from "@/lib/validation/documents";
 import { CategoryCombobox } from "./category-combobox";
+import { TagPicker } from "./tag-picker";
 
-/** Title, reference code, category and description. */
+/** An array field reports either one error (too many tags) or one per item (a tag too long). */
+function tagErrors(error: unknown): ({ message?: string } | undefined)[] {
+  if (!error) return [];
+  return Array.isArray(error) ? error.filter(Boolean).slice(0, 1) : [error as { message?: string }];
+}
+
+/** Title, reference code, category, tags and description. */
 export function DocumentDetailsFields({ control, disabled }: { control: Control<UpdateDocumentInput>; disabled?: boolean }) {
   return (
     <FieldGroup className="gap-4">
@@ -46,6 +53,18 @@ export function DocumentDetailsFields({ control, disabled }: { control: Control<
           )}
         />
       </div>
+      <Controller
+        name="tags"
+        control={control}
+        render={({ field, fieldState }) => (
+          <Field data-invalid={fieldState.invalid}>
+            <FieldLabel htmlFor="doc-tags">Tags</FieldLabel>
+            <TagPicker id="doc-tags" value={field.value} onChange={field.onChange} invalid={fieldState.invalid} disabled={disabled} />
+            <FieldDescription>Optional words that group documents and help people find them, e.g. &ldquo;Fire safety&rdquo; or &ldquo;Induction&rdquo;.</FieldDescription>
+            <FieldError errors={tagErrors(fieldState.error)} />
+          </Field>
+        )}
+      />
       <Controller
         name="description"
         control={control}

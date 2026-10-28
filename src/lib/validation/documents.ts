@@ -65,12 +65,45 @@ export const ackSettingsSchema = z.object({
 });
 export type AckSettingsInput = z.infer<typeof ackSettingsSchema>;
 
+export const TAG_NAME_MAX = 40;
+export const TAGS_PER_DOCUMENT_MAX = 20;
+
+/** A tag as shown: trimmed, inner whitespace collapsed to single spaces. */
+export function cleanTagName(name: string): string {
+  return name.trim().replace(/\s+/g, " ");
+}
+
+/** Per-tenant uniqueness key: "Fire  Safety" and "fire safety" are the same tag. */
+export function tagKey(name: string): string {
+  return cleanTagName(name).toLowerCase();
+}
+
+/** Cleaned, non-empty names without case-insensitive duplicates (the first spelling wins), in input order. */
+export function uniqueTagNames(names: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of names) {
+    const name = cleanTagName(raw);
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+}
+
+export const tagNamesSchema = z
+  .array(z.string().trim().min(1, "A tag cannot be empty").max(TAG_NAME_MAX, `Keep tags to ${TAG_NAME_MAX} characters`))
+  .max(TAGS_PER_DOCUMENT_MAX, `Use at most ${TAGS_PER_DOCUMENT_MAX} tags`);
+
 export const documentMetadataSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters").max(200),
   description: z.string().trim().max(4000),
   referenceCode: z.string().trim().max(50),
   /** Existing category name or a new one (created on save). Empty = uncategorised. */
   categoryName: z.string().trim().max(80),
+  /** Existing tag names or new ones (created on save, matched case-insensitively). */
+  tags: tagNamesSchema,
 });
 export type DocumentMetadataInput = z.infer<typeof documentMetadataSchema>;
 
@@ -136,6 +169,7 @@ export type MyDocumentFilter = (typeof MY_DOCUMENT_FILTERS)[number];
 
 export const myDocumentsQuerySchema = paginationQuerySchema.extend({
   categoryId: idSchema.optional(),
+  tagId: idSchema.optional(),
   filter: z.enum(MY_DOCUMENT_FILTERS).default("all"),
 });
 export type MyDocumentsQuery = z.infer<typeof myDocumentsQuerySchema>;
@@ -159,6 +193,7 @@ export type LibraryTypeFilter = (typeof LIBRARY_TYPE_FILTERS)[number];
 
 export const libraryQuerySchema = paginationQuerySchema.extend({
   categoryId: idSchema.optional(),
+  tagId: idSchema.optional(),
   status: z.enum(LIBRARY_STATUS_FILTERS).default("ACTIVE"),
   type: z.enum(LIBRARY_TYPE_FILTERS).default("document"),
   /** "me" = only what the signed-in user created (Survey Library → "Created by me"). */
@@ -166,7 +201,13 @@ export const libraryQuerySchema = paginationQuerySchema.extend({
 });
 export type LibraryQuery = z.infer<typeof libraryQuerySchema>;
 
-export const ACK_REPORT_STATUSES = ["acknowledged", "outstanding", "overdue"] as const;
+/** GET /api/documents/tags: "library" = every tag (managers, for tagging and the library filter); "mine" = tags on documents assigned to me. */
+export const tagListQuerySchema = z.object({
+  scope: z.enum(["library", "mine"]).default("mine"),
+});
+export type TagListQuery = z.infer<typeof tagListQuerySchema>;
+
+export const ACK_REPORT_STATUSES =["acknowledged", "outstanding", "overdue"] as const;
 export type AckReportStatus = (typeof ACK_REPORT_STATUSES)[number];
 
 export const ackReportQuerySchema = paginationQuerySchema.extend({

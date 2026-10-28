@@ -329,6 +329,15 @@ export interface RiskFormRulesDto {
   assessmentCount: number;
 }
 
+/** One hazard / aspect option of a Risk form (Configuration → Risk matrix). */
+export interface HazardOptionDto {
+  id: string;
+  label: string;
+  isActive: boolean;
+  /** Hazards / aspects on this form’s assessments that carry this name. */
+  usedCount: number;
+}
+
 export interface ScanResultDto {
   id: string;
   reference: string;

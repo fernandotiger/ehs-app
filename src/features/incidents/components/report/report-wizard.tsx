@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   CloudOff,
   Droplets,
+  EyeOff,
   Flame,
   Lightbulb,
   MessageSquareWarning,
@@ -96,6 +97,8 @@ interface ReportValues {
   investigatorIds: string[];
   notifyUserIds: string[];
   isConfidential: boolean;
+  /** Report anonymously – fixed once the report is first saved. */
+  anonymous: boolean;
   answers: FormValues;
 }
 
@@ -120,6 +123,7 @@ function initialValues(types: ReportSetupTypeDto[], incident?: IncidentDetailDto
       investigatorIds: incident.investigators.map((i) => i.id),
       notifyUserIds: incident.notifyUsers.map((u) => u.id),
       isConfidential: incident.isConfidential,
+      anonymous: incident.isAnonymous,
       answers: Object.fromEntries(Object.entries(incident.answers).filter(([k]) => !SYSTEM_KEYS.includes(k))),
     };
   }
@@ -144,6 +148,7 @@ function initialValues(types: ReportSetupTypeDto[], incident?: IncidentDetailDto
     investigatorIds: [],
     notifyUserIds: [],
     isConfidential: false,
+    anonymous: false,
     answers: {},
   };
 }
@@ -292,7 +297,7 @@ function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: I
     await enqueue({
       id: clientId,
       type: "incident.report",
-      payload: { ...payload(), clientId, submit, evidenceUploadIds: placeholders },
+      payload: { ...payload(), anonymous: values.anonymous, clientId, submit, evidenceUploadIds: placeholders },
       label: `Incident: ${values.title.trim() || "Untitled"}`,
       userId: user.id,
       fileIds: placeholders.map((p) => p.$file),
@@ -334,7 +339,14 @@ function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: I
         try {
           const uploadIds: string[] = [];
           for (const file of files) uploadIds.push((await uploadFile(file, "evidence")).uploadId);
-          const result = await create.mutateAsync({ ...payload(), clientId, submit, formVersionId: type?.reportFormVersion?.versionId ?? null, evidenceUploadIds: uploadIds });
+          const result = await create.mutateAsync({
+            ...payload(),
+            anonymous: values.anonymous,
+            clientId,
+            submit,
+            formVersionId: type?.reportFormVersion?.versionId ?? null,
+            evidenceUploadIds: uploadIds,
+          });
           toast.success(submit ? `Incident ${result.reference} reported` : `Draft ${result.reference} saved`);
           router.push(`/incidents/${result.id}`);
           return;
@@ -417,6 +429,7 @@ function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: I
                   </h2>
                   <p className="text-sm text-muted-foreground">Choose the one that fits best. You can change it later without losing what you entered.</p>
                 </div>
+                <AnonymousChoice value={values.anonymous} onChange={(anonymous) => set({ anonymous })} locked={Boolean(incident)} compact />
                 <div role="group" aria-labelledby="r-type-heading" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {types.map((t) => (
                     <TypeCard key={t.id} type={t} selected={values.typeId === t.id} onChoose={() => chooseType(t.id)} />
@@ -610,6 +623,7 @@ function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: I
                     </label>
                   )}
                 </div>
+                <AnonymousChoice value={values.anonymous} onChange={(anonymous) => set({ anonymous })} locked={Boolean(incident)} />
                 <ReviewSummary values={values} typeName={type?.name ?? incident?.typeLabel ?? "—"} subtypeName={type?.subtypes.find((s) => s.id === values.subtypeId)?.name ?? incident?.subtype?.label} departmentName={departmentName} goTo={goTo} fileCount={files.length} />
                 {isDraft && <BlockerList title="Before you can submit" blockers={gates} />}
                 <BlockerList title="The server could not accept the report" blockers={serverBlockers} tone="destructive" />
@@ -642,6 +656,46 @@ function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: I
         </div>
       </form>
     </>
+  );
+}
+
+/**
+ * "Report anonymously". Chosen before the report is first saved; afterwards it is only shown (a
+ * draft saved under a name already left the name in its history).
+ */
+function AnonymousChoice({ value, onChange, locked, compact = false }: { value: boolean; onChange: (v: boolean) => void; locked: boolean; compact?: boolean }) {
+  if (locked) {
+    if (!value) return null;
+    return (
+      <p className="flex items-start gap-2 rounded-xl border border-chart-2/30 bg-chart-2/5 p-3 text-sm">
+        <EyeOff className="mt-0.5 size-4 shrink-0 text-chart-2" />
+        <span>This report is anonymous – your name is not shown to anyone handling it.</span>
+      </p>
+    );
+  }
+  return (
+    <label className={cn("flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition-colors", value ? "border-chart-2/40 bg-chart-2/5" : "bg-muted/30 hover:bg-muted/50")}>
+      <Checkbox
+        className="mt-0.5"
+        checked={value}
+        onCheckedChange={(c) => onChange(c === true)}
+        aria-label="Report anonymously"
+        aria-describedby={compact ? undefined : "r-anonymous-help"}
+      />
+      <span className="min-w-0">
+        <span className="flex items-center gap-1.5 font-medium">
+          <EyeOff className="size-4 text-chart-2" /> Report anonymously
+        </span>
+        <span className="block text-xs text-muted-foreground">
+          Your name is not shown to anyone handling the report – not even administrators. You can still open it later under Incidents.
+        </span>
+        {value && !compact && (
+          <span id="r-anonymous-help" className="mt-1.5 block text-xs text-muted-foreground">
+            What you write, the people you name and your photos or files can still point to you. Once the report is saved this cannot be changed.
+          </span>
+        )}
+      </span>
+    </label>
   );
 }
 

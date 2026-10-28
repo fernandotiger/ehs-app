@@ -12,16 +12,17 @@ and `../skills/ehs-functional-rebuild` (functional specs: `references/<module>.m
 ## Status
 | Area | State | Details |
 | --- | --- | --- |
-| Platform (tenancy, scoped roles, placement, shared services) | done | `docs/modules/platform.md` |
+| Platform (tenancy, scoped roles, placement, shared services; sidebar folds to icons after picking a page, 28 Oct) | done | `docs/modules/platform.md` |
 | Configuration hub (structure, users, roles, lists, numbering, branding, import, settings, audit log) | done | `docs/modules/configuration.md` |
 | Form Builder, scheduled jobs, My work | done | `docs/modules/forms.md`, `docs/modules/jobs.md` |
-| Documents (+ document surveys, own Survey page) | done | `docs/modules/platform.md`, `docs/modules/document-surveys.md` |
-| Incidents (+ admins add/rename incident types; Port of Cork demo types + per-type forms; type-first report wizard, 27 Oct) | done | `docs/modules/incidents.md` |
-| Risk | done | `docs/modules/risk.md` |
+| Documents (+ document surveys, own Survey page; tags 28 Oct) | done | `docs/modules/platform.md`, `docs/modules/document-surveys.md`, `docs/modules/document-tags.md` |
+| Incidents (+ admins add/rename incident types; Port of Cork demo types + per-type forms; type-first report wizard, 27 Oct; anonymous reporting, 28 Oct) | done | `docs/modules/incidents.md` |
+| Risk (+ hazard lists per risk type on Configuration → Risk matrix, 28 Oct) | done | `docs/modules/risk.md` |
 | Audits, Inspections, Law | **not started – deferred by the product owner** | see "Next steps" |
 
-Quality at handoff: `tsc` 0 errors, 376 vitest tests green (27 Oct, incl. `test/seed`), eslint clean, `next build` clean (no warnings).
-Migrations: `init`, `configuration`, `forms_jobs`, `incidents`, `risk`, `document_surveys`, `survey_optional_file`.
+Quality at handoff: `tsc` 0 errors, 398 vitest tests green (28 Oct, incl. `test/seed`), eslint clean, `next build` clean (no warnings).
+Migrations: `init`, `configuration`, `forms_jobs`, `incidents`, `risk`, `document_surveys`, `survey_optional_file`, `document_tags`,
+`anonymous_incident_reports` (28 Oct, both additive; local DB only – reach Neon with the next Vercel deploy).
 **Git:** first commit 27 Oct 2026 on `master`, pushed to `https://github.com/fernandotiger/ehs-app` (owner's personal repo).
 Ask before committing or pushing. `Port of Cork Incident Module Templates 19022021.xlsx` (client file) stays local – it is
 in `.gitignore`; its content is transcribed in `prisma/seed/incident-types.ts`.
@@ -30,7 +31,7 @@ in `.gitignore`; its content is transcribed in `prisma/seed/incident-types.ts`.
 identical to `.env` there, or existing audit/acknowledgement signatures stop verifying.
 
 ## Databases and running it
-- `.env` → the product owner's **Neon** test database `mvp1` (`DATABASE_DRIVER=neon`). Migrated through `document_surveys` (**`survey_optional_file` not applied yet** – ask the owner first) and seeded
+- `.env` → the product owner's **Neon** test database `mvp1` (`DATABASE_DRIVER=neon`). Migrated through `document_surveys` (**`survey_optional_file`, `document_tags` and `anonymous_incident_reports` not applied yet** – the next Vercel deploy applies them; ask the owner before applying by hand) and seeded
   on 27 Oct 2026. `npm run dev` uses it (http://localhost:3000; `BETTER_AUTH_URL` must match the port).
 - `.env.localdb` → local `prisma dev` server `oleoq` (database `template1` on :51221, shadow :51222). Start with
   `npx prisma dev -n oleoq -d`; prefix commands with `bash scripts/localdb.sh` (Git Bash). Keep `DATABASE_POOL_MAX=1`.
@@ -71,6 +72,13 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
     types go last)
 12. Port of Cork demo incident types: Audit / Law follow-ups need "Audit Non Conformance" / "Non Compliance" back, or route
     to Inspection Finding → "Audit Finding"? (not decided – keys reserved); First Aid Outcome as a choice list? (free text)
+13. Anonymous incident reports: allow admins to switch them off (company / per type)? progress notifications to the
+    anonymous reporter? block (instead of warn about) their comments? whistleblowing-grade channel without any account link?
+    (always available; none; warn; no – see incidents.md "Anonymous reporting")
+14. Document tags: rename / merge / delete tags (e.g. in Configuration → Lists)? filter by several tags at once? tags on
+    surveys too? employees tagging? (not built; one tag at a time; no; managers only – see document-tags.md)
+15. Risk hazard lists: "Other – type it" next to the list? manual order? block removing an option that assessments use?
+    (strict list; alphabetical; allowed – assessments keep the name. See risk.md "Hazard lists per risk type")
 
 ## Known issues and gotchas
 - Pages a user may not see render the not-found / access-denied UI with HTTP **200** (`(app)/loading.tsx` streams first); APIs return 404/403.
@@ -81,6 +89,7 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
   (`Get-NetTCPConnection -LocalPort <port>`) and stop it, or the user's `npm run dev` silently moves to port 3001.
 - The full seed (`npx prisma db seed`) is idempotent but re-applies demo users' names/placements and Administrator permissions;
   module seeds skip when data exists. To add new demo data to an existing database, run only that module's seed function.
+  Demo risk hazard / aspect lists: `bash scripts/localdb.sh npm run db:seed:risk-hazards` (local DB applied 28 Oct 2026; Neon not).
   Demo incident types + forms: `bash scripts/localdb.sh npm run db:seed:incident-types` (local DB applied 27 Oct 2026;
   Neon applied 27 Oct 2026 with the owner's consent via `ALLOW_REMOTE_SEED=1 npm run db:seed:incident-types` – Northstar keeps
   "Environmental Incident" switched off because 2 incidents use it).

@@ -29,6 +29,7 @@ import type {
   LibraryItem,
   ManageDocumentDto,
   MyDocumentsResponse,
+  TagDto,
   VersionHistoryItem,
 } from "@/server/modules/documents/document.dto";
 
@@ -44,6 +45,7 @@ export type {
   ManageDocumentDto,
   MyAckStatus,
   MyDocumentItem,
+  TagDto,
   VersionHistoryItem,
 } from "@/server/modules/documents/document.dto";
 
@@ -54,6 +56,7 @@ export interface MyDocumentsParams {
   pageSize: number;
   q?: string;
   categoryId?: string;
+  tagId?: string;
   filter: MyDocumentFilter;
 }
 
@@ -62,6 +65,7 @@ export interface LibraryParams {
   pageSize: number;
   q?: string;
   categoryId?: string;
+  tagId?: string;
   status: LibraryStatusFilter;
   type?: LibraryTypeFilter;
   createdBy?: "me";
@@ -81,6 +85,7 @@ export const documentKeys = {
   my: (params: MyDocumentsParams) => ["documents", "my", params] as const,
   detail: (id: string) => ["documents", "detail", id] as const,
   categories: ["documents", "categories"] as const,
+  tags: (scope: TagScope) => ["documents", "tags", scope] as const,
   library: (params: LibraryParams) => ["documents", "library", params] as const,
   manage: (id: string) => ["documents", "manage", id] as const,
   versions: (id: string) => ["documents", "versions", id] as const,
@@ -127,6 +132,18 @@ export function useDocumentCategories() {
     queryKey: documentKeys.categories,
     queryFn: ({ signal }) => api.get<CategoryDto[]>("/api/documents/categories", undefined, signal),
     staleTime: 5 * 60_000,
+  });
+}
+
+export type TagScope = "library" | "mine";
+
+/** "library" = every tag (tag picker, Document Library filter); "mine" = tags on documents assigned to me (My Documents filter). */
+export function useDocumentTags(scope: TagScope, enabled = true) {
+  return useQuery({
+    queryKey: documentKeys.tags(scope),
+    queryFn: ({ signal }) => api.get<TagDto[]>("/api/documents/tags", { scope }, signal),
+    staleTime: 60_000,
+    enabled,
   });
 }
 

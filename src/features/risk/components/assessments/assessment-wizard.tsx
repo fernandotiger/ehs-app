@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 import type { AssessmentDecision } from "@/lib/validation/risk";
 import { classify, scoreAssessment } from "@/server/modules/risk/scoring";
 import { draftBlockers, submitBlockers } from "@/server/modules/risk/workflow";
-import { useCreateAssessment, useUpdateAssessment, type AssessmentDetailDto } from "../../api";
+import { useCreateAssessment, useHazardOptions, useUpdateAssessment, type AssessmentDetailDto } from "../../api";
 import { blockersOf, formatDate, todayLocal } from "../../format";
 import { BlockerList, ScoreChip } from "../shared";
 import { HazardEditor, newHazard, type HazardDraft } from "./hazard-editor";
@@ -163,6 +163,8 @@ function Wizard({ assessment }: { assessment?: AssessmentDetailDto }) {
   const siteId = useDepartmentSite(values.departmentId);
   const departmentName = useDepartmentName(values.departmentId);
   const version = useFormVersion(values.formVersionId);
+  // The risk type's hazard list (current, not captured): the Hazard dropdown's options.
+  const hazardOptions = useHazardOptions(values.formVersionId);
   const rules: RiskFormSettings | null = assessment ? assessment.rules : version.data ? readRiskSettings(version.data.settings) : null;
   const formAvailable = !rules || !siteId || rules.siteIds.length === 0 || rules.siteIds.includes(siteId);
 
@@ -430,7 +432,7 @@ function Wizard({ assessment }: { assessment?: AssessmentDetailDto }) {
                         : `Choose likelihood and severity (1–${rules.method === "5x5" ? 5 : 3}). The assessment score is the highest ${hazardWord(rules.domain)} score – never a sum.`}
                   </p>
                 </div>
-                <HazardEditor rules={rules} value={values.hazards} onChange={(hazards) => set({ hazards })} showErrors={showErrors} />
+                <HazardEditor rules={rules} value={values.hazards} onChange={(hazards) => set({ hazards })} showErrors={showErrors} hazardOptions={hazardOptions.data?.options} />
               </>
             )}
 

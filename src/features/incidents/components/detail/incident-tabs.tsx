@@ -19,6 +19,12 @@ import { useActions, useIncidentHistory, useLinkAction, type IncidentDetailDto }
 import { blockersOf, formatDate, formatDateTime, HISTORY_LABELS, placementLabel } from "../../format";
 import { ActionStateBadge, Detail, SectionHeading } from "../shared";
 
+/** Anonymous reports name nobody; only the reporter is told the report is theirs. */
+function reporterLabel(incident: IncidentDetailDto): string {
+  if (incident.isAnonymous) return incident.reportedByMe ? "Anonymous (you – nobody else can see that)" : "Anonymous";
+  return incident.reporter?.name ?? "—";
+}
+
 export function OverviewTab({ incident }: { incident: IncidentDetailDto }) {
   const answersSnapshot = incident.reportForm;
   return (
@@ -61,7 +67,7 @@ export function OverviewTab({ incident }: { incident: IncidentDetailDto }) {
           </CardHeader>
           <CardContent>
             <dl className="space-y-3">
-              <Detail label="Reported by">{`${incident.reporter.name}${incident.submittedAt ? ` · ${formatDate(incident.submittedAt)}` : " · draft"}`}</Detail>
+              <Detail label="Reported by">{`${reporterLabel(incident)}${incident.submittedAt ? ` · ${formatDate(incident.submittedAt)}` : " · draft"}`}</Detail>
               <Detail label="Investigators">{incident.investigators.map((i) => i.name).join(", ") || null}</Detail>
               <Detail label="Investigation target">{formatDate(incident.investigationTargetDate)}</Detail>
               <Detail label="Also told">{incident.notifyUsers.map((u) => u.name).join(", ") || null}</Detail>

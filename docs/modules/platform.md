@@ -44,6 +44,13 @@ To plug a new entity type in: write `<module>/<entity>.entity.ts` implementing `
   section has `module: "<key>"`, filtered by `enabledModules` and item permissions). Sidebar sections are collapsible
   (the one holding the current page opens); sidebar header shows the organisation name. Mobile bottom nav: Home, My work,
   Documents (if enabled), Menu.
+- **Menu folds after picking a page** (owner's choice, 28 Oct 2026 – "shrink to icons, the same when a user clicks on
+  Toggle Sidebar"): on desktop, a plain click on a sidebar link (menu item or the organisation name) that opens another
+  page folds the sidebar to its icon strip with the sidebar's own `setOpen(false)` – the same state and `sidebar_state`
+  cookie as Toggle Sidebar / Ctrl+B, so that button opens it again and the choice survives reloads. Not folded: clicking
+  the page already shown, opening a section header, Ctrl/Cmd/Shift/middle clicks (new tab or window). Rule
+  `changesPage()` in `nav-config.ts` (tested); hook `useCloseAfterNavigate()` in `app-sidebar.tsx`. The phone menu
+  (below 768 px, a sheet) closes after every tap as before and does not change the desktop state.
 - Configuration hub `/configuration`: cards in `src/features/configuration/hub-cards.ts` (groups Organisation / Access /
   Forms & automation / Customisation / Account). A card without `href` shows "Coming soon" – add `href` when you build it.
   Built: `/configuration/settings` (System settings), `/configuration/audit-log` (`/api/configuration/audit-log`).
@@ -57,6 +64,7 @@ To plug a new entity type in: write `<module>/<entity>.entity.ts` implementing `
 - Notification types: `document.assigned | document.ack_required | document.version_issued | document.ack_reminder | document.ack_escalation`.
 - Acknowledgement signatures now include `organizationId`.
 - Document surveys (one optional survey per document, anonymous answers, results, due work `document.survey`): see `docs/modules/document-surveys.md`.
+- Document tags (per-tenant, case-insensitive; filter + search in Document Library and My Documents): see `docs/modules/document-tags.md`.
 
 ## Data, migrations, local DB
 - Baseline migration `prisma/migrations/20261026092415_init` (+ immutable triggers for `audit_logs`, `document_acknowledgements`).

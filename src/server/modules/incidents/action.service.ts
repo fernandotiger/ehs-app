@@ -200,6 +200,8 @@ async function linkableIncidents(db: DbClient, user: CurrentUser, ids: readonly 
       id: true,
       reference: true,
       reporterId: true,
+      isAnonymous: true,
+      anonymousReporterKey: true,
       isDraft: true,
       isConfidential: true,
       closedAt: true,

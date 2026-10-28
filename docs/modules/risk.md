@@ -74,6 +74,35 @@ Comments. `?review=1` opens the periodic review. QR label dialog (`qrcode-genera
 test link. `/scan` (behind sign-in): label link, typed reference, camera / image where `BarcodeDetector` exists.
 Configuration → "Risk matrix & review rules" `/configuration/risk` (company-wide `risk.configure` or `forms.publish`).
 
+## Hazard lists per risk type (added 28 Oct 2026)
+Product owner's request: on Configuration → Risk matrix, the selected risk type (= Risk form) also has its own list of
+hazards (aspects for Environment forms) – the options of the Hazard dropdown of its assessments.
+
+**How hazards were stored before:** only as free text on each assessment (`RiskHazard.name`); no list existed (spec and
+prototype have none). **What was extended:** the platform pick-list model `LookupValue` – one list per Risk form under
+the key `risk.hazard:<formId>` (`src/lib/risk/hazard-options.ts`). Same table, case-insensitive uniqueness, active flag
+and audit entity (`LookupValue`, actions CREATED / UPDATED / DELETED with `listKey` + form name) as the other lists, but
+managed on the Risk matrix page – these lists are not in Configuration → Lists. No migration.
+
+- **Configuration** (`HazardListPanel` under the rules panel; company-wide `risk.configure` or `forms.publish`): add,
+  rename, switch on/off, remove (with confirmation). Each option shows how often its name is used on this form's
+  assessments. Changes apply at once – the list is NOT versioned with the form (unlike the matrix rules), so existing
+  drafts see the current list too. Alphabetical; no manual ordering.
+- **Assessment wizard** (`HazardNamePicker` in `hazard-editor.tsx`, options from `GET /api/risk/hazard-options?formVersionId=`):
+  while the form has at least one switched-on option, the Hazard field is a searchable dropdown of the switched-on
+  options; a name the hazard already has stays selectable under "Current – no longer in the list". Without a list in use
+  (none, or all switched off) the name is typed, as before.
+- **Server rule** (`checkHazardNames`, tested; called in `assessment.service` `prepare`): a new or changed name must be a
+  switched-on option (stored with the option's spelling, e.g. "lone  WORKING" → "Lone working"); unchanged names stay
+  valid. Otherwise 422 "Choose the hazard from the list – “…” is not in it" / "… has been switched off".
+- **Existing assessments keep their hazard labels:** names are copied text, so renaming, switching off or removing an
+  option changes no assessment, revision snapshot, task or report. Clones and task rescores copy names unchanged.
+- API: `GET/POST /api/risk/matrix/:formId/hazards`, `PUT/DELETE /api/risk/matrix/:formId/hazards/:hazardId`.
+- Demo data (`prisma/seed/risk-hazards.ts`, part of the Northstar seed; existing DBs: `bash scripts/localdb.sh npm run
+  db:seed:risk-hazards`, idempotent, local unless `ALLOW_REMOTE_SEED=1`): 16 hazards for the 5×5 Health & Safety form,
+  8 aspects for the FMEA Environment form (both include the names the demo assessments use); the Checklist form has no
+  list (its rows are checklist items), so it shows the typed field. Applied to the LOCAL DB on 28 Oct 2026, not Neon.
+
 ## Seed (`prisma/seed/risk.ts`, idempotent – skipped when the tenant has assessments)
 Northstar: 8 assessments using the published Risk forms – Approved 5×5 (forklift, 20 Critical; ladder RA-…-0002, rev 2
 via a task rescore 15 → 10, review overdue), Awaiting approval, Draft (incomplete), FMEA environment (72 Medium, review
@@ -94,8 +123,14 @@ some overdue); one related link. Counters for `risk-assessment` / `risk-task` ar
   label and also resolves. A label of another workspace shows a message instead of a lookup.
 - Programme progress counts every linked task including sub-tasks (spec wording); the prototype counted top-level only.
 - Assessment Tasks tab lists only tasks the viewer may see (`risk.task.view` scope or own).
+- Hazard lists per risk type are not in the spec (owner's request, 28 Oct 2026); see "Hazard lists per risk type".
 
 ## Open questions
+- Hazard lists: allow "Other – type it" next to the list (now strict while a list is in use)? Manual ordering of the
+  options (now alphabetical)? Should removing an option be blocked while assessments use its name (now allowed – they
+  keep the name)? Should the hazard list also feed the consequence/controls (templates per hazard)?
+- Smoke test of hazard lists (28 Oct 2026, local DB): H&S list now also has "Lone working" and "Hot work (welding,
+  cutting)" (renamed from "Hot work"), "Vibration" is switched off and "Confined spaces" was removed.
 - Confidentiality is only a flag for company-wide configurators – confirm no enforced hiding is wanted yet.
 - Should a named approver without `risk.approve` be blocked from being chosen (picker filters by permission only)?
 - Should Approved-assessment reminders use the form's advance-notice days (Home/Overview "reviews due" does) or only

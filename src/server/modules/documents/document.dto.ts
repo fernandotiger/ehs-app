@@ -18,6 +18,11 @@ export interface CategoryDto extends NamedRef {
   documentCount: number;
 }
 
+export interface TagDto extends NamedRef {
+  /** Documents (not surveys) carrying the tag – within the scope asked for. */
+  documentCount: number;
+}
+
 export interface VersionSummaryDto {
   id: string;
   versionNumber: number;
@@ -51,6 +56,8 @@ export interface MyDocumentItem {
   description: string | null;
   referenceCode: string | null;
   category: NamedRef | null;
+  /** Sorted by name. */
+  tags: NamedRef[];
   status: DocumentStatusValue;
   currentVersion: VersionSummaryDto | null;
   publishedAt: string | null;
@@ -133,6 +140,8 @@ export interface LibraryItem {
   title: string;
   referenceCode: string | null;
   category: NamedRef | null;
+  /** Sorted by name. */
+  tags: NamedRef[];
   status: DocumentStatusValue;
   currentVersion: VersionSummaryDto | null;
   audience: AudienceSummaryDto;

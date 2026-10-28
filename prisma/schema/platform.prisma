@@ -464,12 +464,13 @@ model Attachment {
   sizeBytes      Int?
   storageDriver  String?
   storageKey     String?
-  uploadedById   String
+  /// Null for files added with an anonymous incident report.
+  uploadedById   String?
   createdAt      DateTime       @default(now())
   /// Removing an attachment detaches it; the stored object is kept for audit.
   removedAt      DateTime?
 
-  uploadedBy User @relation(fields: [uploadedById], references: [id])
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
 
   @@index([organizationId, entityType, entityId])
   @@map("attachments")

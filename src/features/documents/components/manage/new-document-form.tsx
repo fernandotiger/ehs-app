@@ -41,6 +41,7 @@ export function NewDocumentForm() {
       description: "",
       referenceCode: "",
       categoryName: "",
+      tags: [],
       audience: EMPTY_AUDIENCE,
       ack: {
         requiresAcknowledgement: true,

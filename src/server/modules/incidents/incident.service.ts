@@ -14,12 +14,16 @@ import { resolvePlacement, type ResolvedPlacement } from "@/server/modules/organ
 import { uploadService } from "@/server/modules/uploads/upload.service";
 import { requireTenantId } from "@/server/tenancy/context";
 import { asAnswers, asSnapshot, captureIncidentForm, checkAnswers, publishedVersionId, REPORT_SYSTEM_KEYS } from "./forms";
+import { anonymousClientId, anonymousReporterKey, ANONYMOUS_REPORTER } from "./anonymous-reporter";
 import {
+  actsAsAnonymousReporter,
   canArchiveIncident,
   canCloseIncident,
   canEditReport,
   canSubmitReport,
   incidentVisibleWhere,
+  isReporter,
+  type IncidentPrincipal,
   type IncidentRecordFacts,
 } from "./incident-access.policy";
 import { listLabel } from "./incident-lookups";
@@ -67,6 +71,8 @@ const recordSelect = {
   isConfidential: true,
   isDraft: true,
   reporterId: true,
+  isAnonymous: true,
+  anonymousReporterKey: true,
   immediateAction: true,
   firstAid: true,
   nurseNotified: true,
@@ -81,13 +87,19 @@ const recordSelect = {
 
 type RecordRow = Prisma.IncidentGetPayload<{ select: typeof recordSelect }>;
 
-export function recordFacts(row: Pick<RecordRow, "businessUnitId" | "siteId" | "locationId" | "departmentId" | "reporterId" | "isDraft" | "isConfidential" | "closedAt" | "archivedAt"> & { investigators: { userId: string }[] }): IncidentRecordFacts {
+export function recordFacts(
+  row: Pick<RecordRow, "businessUnitId" | "siteId" | "locationId" | "departmentId" | "reporterId" | "isAnonymous" | "anonymousReporterKey" | "isDraft" | "isConfidential" | "closedAt" | "archivedAt"> & {
+    investigators: { userId: string }[];
+  },
+): IncidentRecordFacts {
   return {
     businessUnitId: row.businessUnitId,
     siteId: row.siteId,
     locationId: row.locationId,
     departmentId: row.departmentId,
     reporterId: row.reporterId,
+    isAnonymous: row.isAnonymous,
+    anonymousReporterKey: row.anonymousReporterKey,
     investigatorIds: row.investigators.map((i) => i.userId),
     isDraft: row.isDraft,
     isConfidential: row.isConfidential,
@@ -160,13 +172,36 @@ function peopleRows(organizationId: string, incidentId: string, people: readonly
   }));
 }
 
+/**
+ * Who a write is recorded against. The reporter of an anonymous report is never named: audit rows say
+ * "Anonymous reporter" without IP address / browser, files are stored without an uploader and the
+ * upload session (which names the uploader) is deleted once used.
+ */
+interface WriteActor {
+  user: CurrentUser;
+  anonymous: boolean;
+}
+
+function auditActor(w: WriteActor) {
+  return w.anonymous ? ANONYMOUS_REPORTER : w.user;
+}
+
+function auditMeta(w: WriteActor, meta: RequestMeta): RequestMeta | undefined {
+  return w.anonymous ? undefined : meta;
+}
+
+function writeActor(user: CurrentUser & IncidentPrincipal, facts: IncidentRecordFacts): WriteActor {
+  return { user, anonymous: actsAsAnonymousReporter(user, facts) };
+}
+
 /** Consumes uploads referenced by `file` answers as evidence on the incident; answers keep the attachment ids. */
-async function attachFileAnswers(tx: DbClient, user: CurrentUser, incidentId: string, snapshot: QuestionnaireSnapshot, answers: FormValues): Promise<FormValues> {
+async function attachFileAnswers(tx: DbClient, w: WriteActor, incidentId: string, snapshot: QuestionnaireSnapshot, answers: FormValues): Promise<FormValues> {
+  const { user } = w;
   const pending = pendingUploads(snapshot, answers);
   if (!pending.length) return answers;
   const out: FormValues = { ...answers };
   for (const item of pending) {
-    const file = await uploadService.consume(item.uploadId, user, "evidence", tx);
+    const file = await uploadService.consume(item.uploadId, user, "evidence", tx, { forget: w.anonymous });
     const row = await tx.attachment.create({
       data: {
         organizationId: user.organizationId,
@@ -179,7 +214,7 @@ async function attachFileAnswers(tx: DbClient, user: CurrentUser, incidentId: st
         sizeBytes: file.sizeBytes,
         storageDriver: file.storageDriver,
         storageKey: file.storageKey,
-        uploadedById: user.id,
+        uploadedById: w.anonymous ? null : user.id,
       },
     });
     const list = (out[item.fieldKey] as { uploadId?: string; attachmentId?: string; fileName: string; sizeBytes?: number }[]).map((f) =>
@@ -190,9 +225,10 @@ async function attachFileAnswers(tx: DbClient, user: CurrentUser, incidentId: st
   return out;
 }
 
-async function attachEvidence(tx: DbClient, user: CurrentUser, incidentId: string, uploadIds: readonly string[]): Promise<number> {
+async function attachEvidence(tx: DbClient, w: WriteActor, incidentId: string, uploadIds: readonly string[]): Promise<number> {
+  const { user } = w;
   for (const uploadId of uploadIds) {
-    const file = await uploadService.consume(uploadId, user, "evidence", tx);
+    const file = await uploadService.consume(uploadId, user, "evidence", tx, { forget: w.anonymous });
     await tx.attachment.create({
       data: {
         organizationId: user.organizationId,
@@ -205,7 +241,7 @@ async function attachEvidence(tx: DbClient, user: CurrentUser, incidentId: strin
         sizeBytes: file.sizeBytes,
         storageDriver: file.storageDriver,
         storageKey: file.storageKey,
-        uploadedById: user.id,
+        uploadedById: w.anonymous ? null : user.id,
       },
     });
   }
@@ -230,7 +266,7 @@ interface PreparedReport {
  */
 async function prepareReport(
   db: DbClient,
-  input: Omit<IncidentCreateInput, "clientId" | "submit" | "evidenceUploadIds" | "formVersionId">,
+  input: Omit<IncidentCreateInput, "clientId" | "submit" | "evidenceUploadIds" | "formVersionId" | "anonymous">,
   ctx: { versionId: string | null; existingSnapshot: QuestionnaireSnapshot | null; currentSubtypeId: string | null; currentShift: string | null; isNew: boolean },
 ): Promise<PreparedReport> {
   const type = await db.incidentType.findUnique({ where: { id: input.typeId }, include: { subtypes: true } });
@@ -333,10 +369,14 @@ async function notifyInvestigators(db: DbClient, actor: CurrentUser, incident: {
 export const incidentService = {
   /** Report an incident (draft or submitted). Idempotent on `clientId` (wizard retries, offline sync). */
   async create(input: IncidentCreateInput, user: CurrentUser, meta: RequestMeta, options: { source?: "OFFLINE_SYNC" } = {}): Promise<IncidentWriteResult> {
-    if (input.clientId) {
-      const existing = await prisma.incident.findUnique({ where: { clientId: input.clientId }, select: { id: true, reference: true, isDraft: true, reporterId: true } });
+    const clientId = input.clientId ? (input.anonymous ? anonymousClientId(input.clientId) : input.clientId) : null;
+    if (clientId) {
+      const existing = await prisma.incident.findUnique({
+        where: { clientId },
+        select: { id: true, reference: true, isDraft: true, reporterId: true, anonymousReporterKey: true },
+      });
       if (existing) {
-        if (existing.reporterId !== user.id) throw new ValidationError("This report id is already in use.");
+        if (!isReporter(user, existing)) throw new ValidationError("This report id is already in use.");
         return { id: existing.id, reference: existing.reference, isDraft: existing.isDraft, created: false };
       }
     }
@@ -350,6 +390,7 @@ export const incidentService = {
     if (input.evidenceUploadIds.length && !prepared.type.attachmentsAllowed) throw new ValidationError(`Attachments are not allowed on ${prepared.type.name} reports.`);
 
     const organizationId = requireTenantId();
+    const w: WriteActor = { user, anonymous: input.anonymous };
     const result = await prisma.$transaction(async (tx) => {
       const reference = await numberingService.next(tx, "incident");
       const now = new Date();
@@ -357,7 +398,7 @@ export const incidentService = {
         data: {
           organizationId,
           reference,
-          clientId: input.clientId ?? null,
+          clientId,
           typeId: prepared.type.id,
           typeLabel: prepared.type.name,
           subtypeId: prepared.subtype?.id ?? null,
@@ -373,7 +414,9 @@ export const incidentService = {
           isConfidential: input.isConfidential ?? prepared.type.defaultConfidential,
           isDraft: !input.submit,
           submittedAt: input.submit ? now : null,
-          reporterId: user.id,
+          reporterId: input.anonymous ? null : user.id,
+          isAnonymous: input.anonymous,
+          anonymousReporterKey: input.anonymous ? anonymousReporterKey(user.id) : null,
           immediateAction: input.immediateAction,
           firstAid: input.firstAid,
           nurseNotified: input.nurseNotified,
@@ -384,7 +427,7 @@ export const incidentService = {
         },
         select: { id: true },
       });
-      const answers = await attachFileAnswers(tx, user, incident.id, prepared.snapshot, prepared.answers);
+      const answers = await attachFileAnswers(tx, w, incident.id, prepared.snapshot, prepared.answers);
       await tx.incident.update({
         where: { id: incident.id },
         data: { answers: JSON.parse(JSON.stringify(answers)) as Prisma.InputJsonValue, searchText: searchTextFor(input.title, reference, prepared.snapshot, answers) },
@@ -394,16 +437,22 @@ export const incidentService = {
       if (investigatorIds.length) {
         await tx.incidentInvestigator.createMany({ data: investigatorIds.map((userId) => ({ organizationId, incidentId: incident.id, userId })) });
       }
-      const attached = await attachEvidence(tx, user, incident.id, input.evidenceUploadIds);
+      const attached = await attachEvidence(tx, w, incident.id, input.evidenceUploadIds);
       await recordAudit(
         {
           entityType: INCIDENT_ENTITY,
           entityId: incident.id,
           action: input.submit ? INCIDENT_AUDIT.REPORTED : INCIDENT_AUDIT.DRAFT_SAVED,
-          actor: user,
+          actor: auditActor(w),
           changes: { reference, title: input.title, type: prepared.type.name, subtype: prepared.subtype?.name ?? null, severity: input.severity },
-          metadata: { formVersion: prepared.snapshot.version, formName: prepared.snapshot.name, attachments: attached, ...(options.source ? { source: options.source } : {}) },
-          meta,
+          metadata: {
+            formVersion: prepared.snapshot.version,
+            formName: prepared.snapshot.name,
+            attachments: attached,
+            ...(input.anonymous ? { anonymous: true } : {}),
+            ...(options.source ? { source: options.source } : {}),
+          },
+          meta: auditMeta(w, meta),
         },
         tx,
       );
@@ -421,6 +470,7 @@ export const incidentService = {
     if (facts.archived) throw new BusinessRuleError("Restore the incident before editing it.");
     if (!canEditReport(user, facts)) throw new ForbiddenError();
     if (row.version !== input.expectedVersion) throw new StaleVersionError();
+    const w = writeActor(user, facts);
 
     const prepared = await prepareReport(prisma, input, {
       versionId: null,
@@ -434,7 +484,7 @@ export const incidentService = {
 
     const organizationId = requireTenantId();
     return prisma.$transaction(async (tx) => {
-      const answers = await attachFileAnswers(tx, user, id, prepared.snapshot, prepared.answers);
+      const answers = await attachFileAnswers(tx, w, id, prepared.snapshot, prepared.answers);
       const data = {
         typeId: prepared.type.id,
         typeLabel: prepared.type.id === row.typeId ? undefined : prepared.type.name,
@@ -494,9 +544,9 @@ export const incidentService = {
           entityType: INCIDENT_ENTITY,
           entityId: id,
           action: INCIDENT_AUDIT.UPDATED,
-          actor: user,
+          actor: auditActor(w),
           changes: { ...(changes ?? {}), ...(added.length || before.length !== after.length ? { investigators: { from: before, to: after } } : {}) },
-          meta,
+          meta: auditMeta(w, meta),
         },
         tx,
       );
@@ -555,7 +605,8 @@ export const incidentService = {
         },
       });
       if (updated.count !== 1) throw new StaleVersionError();
-      await recordAudit({ entityType: INCIDENT_ENTITY, entityId: id, action: INCIDENT_AUDIT.SUBMITTED, actor: user, meta }, tx);
+      const w = writeActor(user, facts);
+      await recordAudit({ entityType: INCIDENT_ENTITY, entityId: id, action: INCIDENT_AUDIT.SUBMITTED, actor: auditActor(w), meta: auditMeta(w, meta) }, tx);
       await refreshIncidentStatus(tx, [id]);
       await notifyInvestigators(tx, user, { id, reference: row.reference, title: row.title }, row.investigators.map((i) => i.userId));
       return { id, reference: row.reference, isDraft: false, created: false };
@@ -564,15 +615,20 @@ export const incidentService = {
 
   async setArchived(id: string, archived: boolean, expectedVersion: number, user: CurrentUser, meta: RequestMeta): Promise<void> {
     const row = await loadVisibleIncident(prisma, user, id);
-    if (!canArchiveIncident(user, recordFacts(row))) throw new ForbiddenError();
+    const facts = recordFacts(row);
+    if (!canArchiveIncident(user, facts)) throw new ForbiddenError();
     if (Boolean(row.archivedAt) === archived) return;
+    const w = writeActor(user, facts);
     await prisma.$transaction(async (tx) => {
       const updated = await tx.incident.updateMany({
         where: { id, version: expectedVersion },
         data: { archivedAt: archived ? new Date() : null, version: { increment: 1 } },
       });
       if (updated.count !== 1) throw new StaleVersionError();
-      await recordAudit({ entityType: INCIDENT_ENTITY, entityId: id, action: archived ? INCIDENT_AUDIT.ARCHIVED : INCIDENT_AUDIT.RESTORED, actor: user, meta }, tx);
+      await recordAudit(
+        { entityType: INCIDENT_ENTITY, entityId: id, action: archived ? INCIDENT_AUDIT.ARCHIVED : INCIDENT_AUDIT.RESTORED, actor: auditActor(w), meta: auditMeta(w, meta) },
+        tx,
+      );
     });
   },
 

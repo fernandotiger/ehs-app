@@ -17,6 +17,7 @@ import { DEFAULT_SYSTEM_SETTINGS, type SystemSettings } from "@/lib/settings/sys
 import { useUpdateDocument, type ManageDocumentDto } from "../../api";
 import { audienceLabel, ESCALATION_TARGET_LABELS, formatDate, formatDateTime } from "../../format";
 import { ComplianceProgress } from "../compliance-progress";
+import { TagChips } from "../tag-chips";
 import { AckSettingsFields } from "./ack-settings-fields";
 import { AudienceBuilder } from "./audience-builder";
 import { DocumentDetailsFields } from "./document-fields";
@@ -28,6 +29,7 @@ function toFormValues(doc: ManageDocumentDto, settings: SystemSettings): UpdateD
     description: doc.description ?? "",
     referenceCode: doc.referenceCode ?? "",
     categoryName: doc.category?.name ?? "",
+    tags: doc.tags.map((t) => t.name),
     audience: {
       allEmployees: doc.audience.allEmployees,
       roleIds: doc.audience.roles.map((r) => r.id),
@@ -124,6 +126,7 @@ function ReadOnlySummary({ doc, survey }: { doc: ManageDocumentDto; survey: bool
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
           {!survey && <Detail label="Reference">{doc.referenceCode ?? "—"}</Detail>}
           {!survey && <Detail label="Category">{doc.category?.name ?? "Uncategorised"}</Detail>}
+          {!survey && <Detail label="Tags">{doc.tags.length ? <TagChips tags={doc.tags} max={20} /> : "—"}</Detail>}
           <Detail label="Audience">{audienceLabel(doc.audience)}</Detail>
           <Detail label="Acknowledgement">{doc.requiresAcknowledgement ? `Required within ${doc.ackDueDays ?? "default"} days` : "Not required"}</Detail>
           {doc.requiresAcknowledgement && <Detail label="Escalation">{ESCALATION_TARGET_LABELS[doc.escalationTarget]}</Detail>}

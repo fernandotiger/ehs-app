@@ -9,6 +9,7 @@ import { seedForms } from "./forms";
 import { seedJobs } from "./jobs";
 import { NORTHSTAR_INCIDENTS, seedIncidents } from "./incidents";
 import { seedRisk } from "./risk";
+import { applyDemoRiskHazards } from "./risk-hazards";
 
 /**
  * Northstar Manufacturing – the main demo tenant (every module enabled).
@@ -323,5 +324,7 @@ export async function seedNorthstar(prisma: PrismaClient): Promise<TenantSeed> {
   await seedIncidents(prisma, seed, NORTHSTAR_INCIDENTS, adminId ? { id: adminId, name: "Alex Morgan" } : null);
   console.log("  • risk (assessments, revisions, reviews, objectives, programmes, tasks)");
   await seedRisk(prisma, seed);
+  console.log("  • risk hazard / aspect lists");
+  await applyDemoRiskHazards(prisma, seed.organizationId);
   return seed;
 }
