@@ -3,7 +3,7 @@
  * Scheduled jobs, Configuration) are always available and are not listed here.
  * Organization.enabledModules holds the keys enabled for a tenant.
  */
-export const MODULE_KEYS = ["documents", "incidents", "risk", "actions", "audits", "inspections", "law"] as const;
+export const MODULE_KEYS = ["documents", "incidents", "risk", "actions", "audits", "inspections", "law", "simplified-law"] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
@@ -65,6 +65,13 @@ export const MODULES: Record<ModuleKey, ModuleDescriptor> = {
     description: "Legal profiles, registers, compliance evaluations and requirement updates.",
     basePath: "/law",
     entityTypes: ["LawProfile", "LawRequirement", "LawTask"],
+  },
+  "simplified-law": {
+    key: "simplified-law",
+    name: "Simplified law",
+    description: "A simple legislation register: pick a category, check which laws apply to us and whether we comply.",
+    basePath: "/simplified-law",
+    entityTypes: ["SlawLegislation", "SlawRequirement"],
   },
 };
 

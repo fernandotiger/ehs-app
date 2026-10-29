@@ -1,0 +1,209 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Simplified law module (sidebar "Simplified law"): the boss's storyboard turned into screens –
+// Category → Sub-category → Legislation → "Applicable to us?" questions → Requirements checklist,
+// with one action per requirement gap feeding an action tracker. Kept fully apart from the Law
+// module (own tables `slaw_*`, own module key and permissions) so either can be removed later.
+// The register is company-wide (no placement columns). Rules: src/lib/simplified-law/rules.ts.
+// People are referenced by user id (names are loaded for display), like the Actions module.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Legal status of a law. Repealed laws stay listed (greyed) but cannot be checked.
+enum SlawLegalStatus {
+  ACTIVE
+  AFFECTED
+  SUPERSEDED
+  REPEALED
+}
+
+/// "Is it applicable to us?" decision (storyboard step 4).
+enum SlawApplicability {
+  NOT_CHECKED
+  APPLIES
+  DOES_NOT_APPLY
+}
+
+enum SlawAnswer {
+  YES
+  NO
+}
+
+/// "Compliant?" column of the requirements checklist (storyboard step 5).
+enum SlawCompliance {
+  NOT_ASSESSED
+  COMPLIANT
+  NOT_COMPLIANT
+  NOT_APPLICABLE
+}
+
+/// The single action a requirement row can carry when it is not compliant.
+enum SlawActionStatus {
+  NONE
+  OPEN
+  DONE
+}
+
+/// Module settings edited in Simplified law → Configuration (one row per tenant, created on first use).
+model SlawSettings {
+  id                 String   @id @default(cuid())
+  organizationId     String   @unique
+  /// Title of the register (the storyboard's "[Product name] Legislation & Compliance Register").
+  registerTitle      String   @default("Legislation & Compliance Register")
+  /// Jurisdictions offered when adding a law, in display order.
+  jurisdictions      String[] @default(["EU", "Ireland"])
+  /// Company wording for the four legal statuses: { ACTIVE: "Active", ... } (missing keys use the defaults).
+  statusLabels       Json?
+  /// Legislation lists hide repealed laws unless the person switches it off.
+  hideRepealed       Boolean  @default(true)
+  /// Due date suggested for a new action: today + this many days.
+  defaultActionDays  Int      @default(30)
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("slaw_settings")
+}
+
+/// Category (parentId null) or sub-category (parentId = its category). Two levels only.
+model SlawCategory {
+  id             String    @id @default(cuid())
+  organizationId String
+  parentId       String?
+  name           String
+  description    String    @default("")
+  sortOrder      Int       @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  parent      SlawCategory?     @relation("SlawCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    SlawCategory[]    @relation("SlawCategoryTree")
+  legislation SlawLegislation[]
+
+  @@index([organizationId, parentId])
+  @@map("slaw_categories")
+}
+
+/// One law in the register, with the company's applicability decision.
+model SlawLegislation {
+  id                     String            @id @default(cuid())
+  organizationId         String
+  /// The sub-category it is listed under.
+  categoryId             String
+  title                  String
+  /// Short name used in lists and actions, e.g. "PPWR".
+  shortTitle             String            @default("")
+  /// Official number / year, e.g. "Regulation (EU) 2025/40", "S.I. No. 299 of 2007".
+  reference              String            @default("")
+  jurisdiction           String
+  status                 SlawLegalStatus   @default(ACTIVE)
+  /// Short note next to the status, e.g. "new regulation", "supplementary".
+  kindLabel              String            @default("")
+  /// Relation to other laws, e.g. "Supplements PPWR", "Repealed from 12 August 2026".
+  relationNote           String            @default("")
+  summary                String            @default("")
+  officialUrl            String?
+  guidanceUrl            String?
+  applicability          SlawApplicability @default(NOT_CHECKED)
+  applicabilityReason    String            @default("")
+  applicabilityById      String?
+  applicabilityAt        DateTime?
+  /// Demo-library key (seed idempotency); null for laws a company added itself.
+  sourceKey              String?
+  createdById            String?
+  version                Int               @default(1)
+  archivedAt             DateTime?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  category     SlawCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  articles     SlawArticle[]
+  questions    SlawQuestion[]
+  requirements SlawRequirement[]
+
+  @@unique([organizationId, sourceKey])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, applicability])
+  @@map("slaw_legislation")
+}
+
+/// Overview row: one article / section with its application date and who it applies to.
+model SlawArticle {
+  id             String    @id @default(cuid())
+  organizationId String
+  legislationId  String
+  chapter        String    @default("")
+  number         String
+  title          String
+  appliesFrom    DateTime? @db.Date
+  /// Roles the article applies to, e.g. ["Manufacturer", "Importer"] – they become the overview's columns.
+  appliesTo      String[]  @default([])
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  legislation SlawLegislation @relation(fields: [legislationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, legislationId])
+  @@map("slaw_articles")
+}
+
+/// Screening question ("Do we …?") with the company's answer.
+model SlawQuestion {
+  id             String      @id @default(cuid())
+  organizationId String
+  legislationId  String
+  text           String
+  sortOrder      Int         @default(0)
+  answer         SlawAnswer?
+  reason         String      @default("")
+  answeredById   String?
+  answeredAt     DateTime?
+  archivedAt     DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  legislation SlawLegislation @relation(fields: [legislationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, legislationId])
+  @@map("slaw_questions")
+}
+
+/// Requirement row of the checklist, with the compliance answer and (when not compliant) one action.
+/// Overdue is derived: action OPEN and due date before today (company-local).
+model SlawRequirement {
+  id                  String           @id @default(cuid())
+  organizationId      String
+  legislationId       String
+  /// Section heading, e.g. "EPR and reporting".
+  section             String           @default("")
+  text                String
+  /// Linked articles, e.g. "Articles 44, 17".
+  articles            String           @default("")
+  sortOrder           Int              @default(0)
+  compliance          SlawCompliance   @default(NOT_ASSESSED)
+  /// Why we comply (evidence), the gap found, or why it does not apply.
+  reason              String           @default("")
+  assessedById        String?
+  assessedAt          DateTime?
+  actionText          String           @default("")
+  actionOwnerId       String?
+  actionDueDate       DateTime?        @db.Date
+  actionStatus        SlawActionStatus @default(NONE)
+  actionSetById       String?
+  actionSetAt         DateTime?
+  actionCompletedAt   DateTime?
+  actionCompletedById String?
+  /// What was done (or why the action was closed automatically).
+  actionNote          String           @default("")
+  version             Int              @default(1)
+  archivedAt          DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  legislation SlawLegislation @relation(fields: [legislationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, legislationId])
+  @@index([organizationId, actionStatus, actionDueDate])
+  @@index([organizationId, actionOwnerId, actionStatus])
+  @@map("slaw_requirements")
+}

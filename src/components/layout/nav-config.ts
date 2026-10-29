@@ -1,4 +1,4 @@
-import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, Library, ListChecks, ListTodo, MapPinned, Scale, Settings, ShieldAlert, ShieldCheck, SquareCheckBig, SquarePen, SquarePlus, Target, TriangleAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, Library, ListChecks, ListTodo, MapPinned, Scale, Settings, ShieldAlert, ShieldCheck, SlidersHorizontal, SquareCheckBig, SquarePen, SquarePlus, Target, TriangleAlert, type LucideIcon } from "lucide-react";
 import { CONFIGURATION_PERMISSIONS } from "@/features/configuration/hub-cards";
 import type { ModuleKey } from "@/lib/modules";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -95,6 +95,21 @@ export const NAV_SECTIONS: NavSection[] = [
       { title: "Law library", href: "/law/library", icon: Library },
       { title: "Profiles", href: "/law/profiles", icon: MapPinned },
       { title: "Reports", href: "/law/reports", icon: BarChart3, permissions: [PERMISSIONS.LAW_VIEW] },
+    ],
+  },
+  {
+    // The boss's storyboard version of Law, kept separate so either module can be removed. Its customisation lives
+    // in its own "Configuration" item (owner's rule, 28 Oct 2026) – the platform Configuration hub is not touched.
+    // "Actions to do" has no permission: everyone sees the actions they own there.
+    key: "simplified-law",
+    title: "Simplified law",
+    icon: Scale,
+    module: "simplified-law",
+    items: [
+      { title: "Overview", href: "/simplified-law", icon: Gauge, permissions: [PERMISSIONS.SLAW_VIEW, PERMISSIONS.SLAW_ASSESS, PERMISSIONS.SLAW_MANAGE] },
+      { title: "All legislation", href: "/simplified-law/legislation", icon: Library, permissions: [PERMISSIONS.SLAW_VIEW, PERMISSIONS.SLAW_ASSESS, PERMISSIONS.SLAW_MANAGE] },
+      { title: "Actions to do", href: "/simplified-law/actions", icon: ListTodo },
+      { title: "Configuration", href: "/simplified-law/configuration", icon: SlidersHorizontal, permissions: [PERMISSIONS.SLAW_MANAGE] },
     ],
   },
   {

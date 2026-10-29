@@ -6,6 +6,7 @@ import { documentEntity } from "@/server/modules/documents/document.entity";
 import { actionTaskEntity, correctiveActionEntity, incidentEntity, investigationEntity } from "@/server/modules/incidents/incident.entity";
 import { lawProfileEntity, lawRequirementEntity, lawTaskEntity } from "@/server/modules/law/law.entity";
 import { riskAssessmentEntity, riskObjectiveEntity, riskProgrammeEntity, riskTaskEntity } from "@/server/modules/risk/risk.entity";
+import { slawLegislationEntity, slawRequirementEntity } from "@/server/modules/simplified-law/slaw.entity";
 import type { EntityDescriptor, EntitySummary } from "./types";
 
 export type { EntityDescriptor, EntityRef, EntitySummary } from "./types";
@@ -29,6 +30,8 @@ const ENTITIES: Record<string, EntityDescriptor> = {
   LawProfile: lawProfileEntity,
   LawRequirement: lawRequirementEntity,
   LawTask: lawTaskEntity,
+  SlawLegislation: slawLegislationEntity,
+  SlawRequirement: slawRequirementEntity,
 };
 
 export function getEntity(entityType: string): EntityDescriptor | null {

@@ -6,6 +6,7 @@ import { documentAcknowledgementProvider, documentSurveyProvider } from "@/serve
 import { incidentActionProvider, incidentInvestigationProvider } from "@/server/modules/incidents/due-work";
 import { lawEvaluationProvider, lawTaskProvider } from "@/server/modules/law/due-work";
 import { riskReviewProvider, riskTaskProvider } from "@/server/modules/risk/due-work";
+import { slawActionProvider } from "@/server/modules/simplified-law/due-work";
 import type { DueWorkProvider } from "./types";
 
 export type { DueWorkItem, DueWorkKind, DueWorkProvider } from "./types";
@@ -16,7 +17,7 @@ export type { DueWorkItem, DueWorkKind, DueWorkProvider } from "./types";
  * A module plugs in by implementing `DueWorkProvider` (usually `<module>/due-work.ts`) and adding
  * it below. Only modules that exist register: the Incident phase adds `incident.investigation` +
  * `incident.action`, the Risk phase `risk.review` + `risk.task`, the Actions module `action`, the Law module
- * `law.evaluation` + `law.task`; `audit` and `inspection` stay declared (src/lib/jobs.ts) but unregistered until
+ * `law.evaluation` + `law.task`, the Simplified law module `slaw.action`; `audit` and `inspection` stay declared (src/lib/jobs.ts) but unregistered until
  * those modules ship. Providers are called inside the tenant context (apiHandler / forEachTenant).
  */
 const PROVIDERS: DueWorkProvider[] = [
@@ -29,6 +30,7 @@ const PROVIDERS: DueWorkProvider[] = [
   actionProvider,
   lawEvaluationProvider,
   lawTaskProvider,
+  slawActionProvider,
 ];
 
 export function dueWorkProvider(kind: DueWorkKind): DueWorkProvider | undefined {

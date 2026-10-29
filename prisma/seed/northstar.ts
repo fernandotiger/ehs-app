@@ -12,6 +12,7 @@ import { NORTHSTAR_INCIDENTS, seedIncidents } from "./incidents";
 import { applyDemoLaw } from "./law";
 import { seedRisk } from "./risk";
 import { applyDemoRiskHazards } from "./risk-hazards";
+import { applyDemoSimplifiedLaw } from "./simplified-law";
 
 /**
  * Northstar Manufacturing – the main demo tenant (every module enabled).
@@ -332,5 +333,7 @@ export async function seedNorthstar(prisma: PrismaClient): Promise<TenantSeed> {
   await applyDemoActions(prisma, seed.organizationId);
   console.log("  • law (legal content 2026.Q3, Non Compliance type, profiles, evaluations, tasks, links)");
   await applyDemoLaw(prisma, seed.organizationId);
+  console.log("  • simplified law (real Irish / EU legislation, demo answers and actions)");
+  await applyDemoSimplifiedLaw(prisma, seed.organizationId);
   return seed;
 }

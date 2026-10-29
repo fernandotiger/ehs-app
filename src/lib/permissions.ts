@@ -71,6 +71,11 @@ export const PERMISSIONS = {
   LAW_EVALUATION_CREATE: "law.evaluation.create",
   LAW_EVALUATION_APPROVE: "law.evaluation.approve",
 
+  // Simplified law (separate from Law so either module can be removed)
+  SLAW_VIEW: "slaw.view",
+  SLAW_ASSESS: "slaw.assess",
+  SLAW_MANAGE: "slaw.manage",
+
   // Form Builder
   FORMS_VIEW: "forms.view",
   FORMS_DESIGN: "forms.design",
@@ -210,6 +215,16 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    key: "simplified-law",
+    title: "Simplified law",
+    description: "A simple legislation register: which laws apply to us and whether we comply.",
+    permissions: [
+      { key: P.SLAW_VIEW, label: "View the register", description: "See categories, legislation, applicability answers and compliance checks." },
+      { key: P.SLAW_ASSESS, label: "Check applicability & compliance", description: "Answer the applicability questions, mark requirements compliant or not and set actions." },
+      { key: P.SLAW_MANAGE, label: "Configure Simplified law", description: "Categories, legislation, questions, requirements, jurisdictions and settings." },
+    ],
+  },
+  {
     key: "forms",
     title: "Form Builder",
     description: "One form library used by incidents, risks, audits and inspections.",
@@ -262,6 +277,8 @@ export const PERMISSION_REQUIRES: Partial<Record<Permission, Permission[]>> = {
   [P.FORMS_ARCHIVE]: [P.FORMS_VIEW],
   [P.CONFIG_JOBS_MANAGE]: [P.CONFIG_JOBS_VIEW],
   [P.CONFIG_JOBS_TEST]: [P.CONFIG_JOBS_VIEW],
+  [P.SLAW_ASSESS]: [P.SLAW_VIEW],
+  [P.SLAW_MANAGE]: [P.SLAW_VIEW],
 };
 
 /**

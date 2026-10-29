@@ -11,6 +11,7 @@ import { DocumentComplianceWidget, MyAcknowledgementsWidget } from "@/features/d
 import { IncidentDashboardWidget } from "@/features/incidents/components/overview/incidents-overview";
 import { LawDashboardWidget } from "@/features/law/components/overview/law-overview";
 import { RiskDashboardWidget } from "@/features/risk/components/overview/risk-overview";
+import { SimplifiedLawDashboardWidget } from "@/features/simplified-law/components/dashboard-widget";
 import { PERMISSIONS } from "@/lib/permissions";
 import { MyWorkWidget } from "@/features/my-work/components/my-work";
 import { guardPage } from "@/server/auth/page-guard";
@@ -26,6 +27,8 @@ export default async function DashboardPage() {
   const risk = user.enabledModules.includes("risk");
   const actions = user.enabledModules.includes("actions");
   const law = user.enabledModules.includes("law");
+  // Simplified law: register users only – action owners find their actions in My work.
+  const simplifiedLaw = user.enabledModules.includes("simplified-law") && [PERMISSIONS.SLAW_VIEW, PERMISSIONS.SLAW_ASSESS, PERMISSIONS.SLAW_MANAGE].some((p) => user.permissions.includes(p));
 
   return (
     <>
@@ -86,13 +89,19 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {simplifiedLaw && (
+        <div className="mb-6">
+          <SimplifiedLawDashboardWidget />
+        </div>
+      )}
+
       {documents ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <MyAcknowledgementsWidget />
           <DocumentComplianceWidget />
         </div>
       ) : (
-        !incidents && !risk && !actions && !law && <EmptyState icon={Inbox} title="You're all set" description="Modules enabled for your company will show their summaries here." />
+        !incidents && !risk && !actions && !law && !simplifiedLaw && <EmptyState icon={Inbox} title="You're all set" description="Modules enabled for your company will show their summaries here." />
       )}
 
       <InsightsSection />
