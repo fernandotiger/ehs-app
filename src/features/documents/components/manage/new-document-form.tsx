@@ -8,18 +8,25 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { FileDropzone } from "@/components/common/file-dropzone";
+import { LoadingCards } from "@/components/common/states";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { useFavouriteSeed } from "@/features/favourites/api";
+import { FavouriteSeedBanner } from "@/features/favourites/components/seed-banner";
+import { useFavouriteCapture } from "@/features/favourites/use-favourite-capture";
+import { useLookups } from "@/features/shared/lookups";
 import { useSystemSettings } from "@/features/shared/settings";
 import { errorMessage } from "@/lib/api-client";
+import type { Snapshot } from "@/lib/favourites/snapshot";
 import { formatBytes, getUploadSummary, uploadFile } from "@/lib/upload-client";
 import { EMPTY_AUDIENCE, updateDocumentSchema, type UpdateDocumentInput } from "@/lib/validation/documents";
-import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/settings/system";
+import { DEFAULT_SYSTEM_SETTINGS, type SystemSettings } from "@/lib/settings/system";
 import { useCreateDocument } from "../../api";
 import { AckSettingsFields } from "./ack-settings-fields";
 import { AudienceBuilder } from "./audience-builder";
 import { DocumentDetailsFields } from "./document-fields";
+import { knownStructureOf, mergeDocument, pickDocument, type KnownStructure } from "./document-seed";
 import { FormSection } from "./form-section";
 
 type Intent = "publish" | "draft";
@@ -34,8 +41,37 @@ export interface DocumentPrefill {
   description?: string;
 }
 
-/** Upload a new document: file → details → audiences → acknowledgement → publish or save draft. Surveys have their own page. */
+/** A fresh form with today's defaults (and the prepared file's suggestions, if any). */
+function freshValues(settings: SystemSettings, prefill?: DocumentPrefill): UpdateDocumentInput {
+  return {
+    title: prefill?.title ?? "",
+    description: prefill?.description ?? "",
+    referenceCode: "",
+    categoryName: "",
+    tags: [],
+    audience: EMPTY_AUDIENCE,
+    ack: {
+      requiresAcknowledgement: true,
+      ackDueDays: settings.defaultAckDueDays,
+      reminderIntervalDays: settings.defaultReminderIntervalDays,
+      escalationDays: settings.defaultEscalationDays,
+      escalationTarget: "MANAGER",
+    },
+  };
+}
+
+/**
+ * Upload a new document: file → details → audiences → acknowledgement → publish or save draft. Surveys have their own page.
+ * Opened from a favourite (`?fav=`), it starts from the details kept with it (document-seed.ts) – never with a prepared file.
+ */
 export function NewDocumentForm({ prefill }: { prefill?: DocumentPrefill } = {}) {
+  const seed = useFavouriteSeed("document.new", { enabled: !prefill });
+  const lookups = useLookups();
+  if (seed.status === "loading" || (seed.seed && lookups.isPending)) return <LoadingCards count={3} />;
+  return <DocumentUploadForm key={seed.favId ?? "new"} prefill={prefill} seed={prefill ? null : seed.seed} known={knownStructureOf(lookups.data)} />;
+}
+
+function DocumentUploadForm({ prefill, seed, known }: { prefill?: DocumentPrefill; seed: Snapshot | null; known: KnownStructure }) {
   const router = useRouter();
   const settingsQuery = useSystemSettings();
   const settings = settingsQuery.data ?? DEFAULT_SYSTEM_SETTINGS;
@@ -58,33 +94,31 @@ export function NewDocumentForm({ prefill }: { prefill?: DocumentPrefill } = {})
   const prepared = !preparedRemoved && preparedQuery.data?.purpose === "document-version" ? preparedQuery.data : null;
   const preparedGone = Boolean(prefill?.uploadId) && !preparedRemoved && (preparedQuery.isError || (preparedQuery.isSuccess && !prepared));
 
+  // A favourite's kept details are merged into the defaults, once, so the restored form is not "dirty".
+  const [start] = useState(() => {
+    const fresh = freshValues(settings, prefill);
+    if (!seed) return { values: fresh, ackKept: false };
+    const merged = mergeDocument(fresh, seed, { known });
+    return { values: merged.values, ackKept: merged.ackKept };
+  });
   const form = useForm<UpdateDocumentInput>({
     resolver: zodResolver(updateDocumentSchema),
-    defaultValues: {
-      title: prefill?.title ?? "",
-      description: prefill?.description ?? "",
-      referenceCode: "",
-      categoryName: "",
-      tags: [],
-      audience: EMPTY_AUDIENCE,
-      ack: {
-        requiresAcknowledgement: true,
-        ackDueDays: settings.defaultAckDueDays,
-        reminderIntervalDays: settings.defaultReminderIntervalDays,
-        escalationDays: settings.defaultEscalationDays,
-        escalationTarget: "MANAGER",
-      },
-    },
+    defaultValues: start.values,
   });
 
-  // Apply the real system defaults once loaded, unless the user already changed them.
+  // Apply the real system defaults once loaded, unless the user already changed them (or a favourite set them).
   const settingsLoaded = !settingsQuery.isPlaceholderData && Boolean(settingsQuery.data);
+  const ackKept = start.ackKept;
   useEffect(() => {
-    if (!settingsLoaded || form.getFieldState("ack").isDirty) return;
+    if (!settingsLoaded || ackKept || form.getFieldState("ack").isDirty) return;
     form.setValue("ack.ackDueDays", settings.defaultAckDueDays);
     form.setValue("ack.reminderIntervalDays", settings.defaultReminderIntervalDays);
     form.setValue("ack.escalationDays", settings.defaultEscalationDays);
-  }, [settingsLoaded, settings.defaultAckDueDays, settings.defaultReminderIntervalDays, settings.defaultEscalationDays, form]);
+  }, [settingsLoaded, ackKept, settings.defaultAckDueDays, settings.defaultReminderIntervalDays, settings.defaultEscalationDays, form]);
+
+  // Favourites star: keeps the details and settings, never the file. A page filled in by Risk
+  // "Save as document" can't be a favourite, so nothing is offered then.
+  useFavouriteCapture("document.new", () => pickDocument(form.getValues(), freshValues(settings)), { enabled: !prefill });
 
   const busy = intent !== null;
 
@@ -123,6 +157,7 @@ export function NewDocumentForm({ prefill }: { prefill?: DocumentPrefill } = {})
   return (
     <>
       <PageHeader title="Upload document" description="Add a policy or procedure and choose who needs to read it." backHref="/documents/manage" backLabel="Document Library" />
+      {seed && <FavouriteSeedBanner sendLabel="Save as draft or Publish now" className="max-w-4xl" />}
 
       <form className="max-w-4xl space-y-4 pb-4" onSubmit={(e) => e.preventDefault()} noValidate>
         <FormSection step={1} title="File" description="Any file type. PDFs and images can be previewed in the browser.">

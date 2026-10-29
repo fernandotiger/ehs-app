@@ -21,9 +21,10 @@ and `../skills/ehs-functional-rebuild` (functional specs: `references/<module>.m
 | Actions – standalone (sidebar "Actions": My Actions, Create Action; Form Builder extra questions; My work, scheduled jobs, overdue notice; 28 Oct) | done | `docs/modules/actions.md` |
 | Law (profiles, "Laws that apply to us" + Check compliance, tasks, Law library, content updates install/accept, reports; links + Non Compliance incident drafts + corrective actions with Risk/Incident back-links; 28 Oct) | done | `docs/modules/law.md` |
 | Simplified law (the boss's storyboard version of Law, built next to Law so one can be kept: category → legislation → "applicable to us?" questions → requirements checklist with one action per gap and an "Actions to do" tracker; own Configuration submenu; real Irish/EU demo law; Home widget; 29 Oct) | done | `docs/modules/simplified-law.md` |
+| Favourites (sidebar item under My work; ☆ in the top bar on the 14 search + 5 create pages – no Configuration, no Law; tiles with the user's title, icon and colour; filters/tabs restored from the URL via `useUrlState`, typed values restored as a starting "seed"; website links; blocked tiles for lost access; 29 Oct) | done | `docs/modules/favourites.md` |
 | Audits, Inspections | **not started – deferred by the product owner** | see "Next steps" |
 
-Quality at handoff: `tsc` 0 errors, 515 vitest tests green (29 Oct, incl. `test/seed`), eslint clean, `next build` clean (no warnings).
+Quality at handoff: `tsc` 0 errors, 656 vitest tests green (29 Oct, after Favourites; incl. `test/seed`), eslint clean, `next build` clean (no warnings).
 Migrations: `init`, `configuration`, `forms_jobs`, `incidents`, `risk`, `document_surveys`, `survey_optional_file`, `document_tags`,
 `anonymous_incident_reports`, `actions`, `law`, `simplified_law` (28–29 Oct, additive; all applied to Neon by the Vercel deploy of `ecf751f`, checked 29 Oct). `actions` also
 holds two idempotent data statements: it switches the `actions` module on for every existing tenant and appends the new
@@ -35,6 +36,8 @@ consent) or install a content package in Configuration → Law content & setting
 on for every tenant and appends `slaw.view` (administrator, manager, ehs-manager) and `slaw.assess` + `slaw.manage` (administrator,
 ehs-manager) to the system roles. After the deploy the Neon tenants see an empty register (categories and laws can be added in
 Simplified law → Configuration) until `db:seed:simplified-law` is run there – done for Northstar on 29 Oct with the owner's consent.
+`favourites` (29 Oct, additive: one table + one enum, no data statements) is applied to the local DB only – it reaches Neon with
+the next Vercel deploy.
 New dependency: `pdf-lib` 1.17.1 (Risk → Save as document).
 **Git:** first commit 27 Oct 2026 on `master`, pushed to `https://github.com/fernandotiger/ehs-app` (owner's personal repo).
 Ask before committing or pushing. `Port of Cork Incident Module Templates 19022021.xlsx` (client file) stays local – it is
@@ -116,6 +119,11 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
     actions only); several actions per requirement or route gaps to standalone Actions? (one, built-in tracker); completing an
     action marks the requirement compliant? (no – "Action done – check again"); yearly re-check reminders? (not built); the boss's
     "Active + affected" status filter instead of "Status: all" + "Hide repealed"? (switch).
+22. Favourites (see favourites.md "Decisions" / "Open questions"): hide the ☆ on pages that can't be favourites? (hide); reports
+    pages count as search pages? (yes); create pages bring back typed values? (yes, as a starting point, files never); Favourites
+    in the phone bottom nav? (no – Menu sheet); limit? (50 per user); favourites listed in the sidebar? (no); admin "recommended
+    favourites" / switch-off? (not built); typed values on the server? (yes, owner-only); audited? (no); blocked ones removed
+    automatically? (no – greyed with Remove); Law pages if Law is kept instead of Simplified law? (excluded today).
 
 ## Known issues and gotchas
 - Pages a user may not see render the not-found / access-denied UI with HTTP **200** (`(app)/loading.tsx` streams first); APIs return 404/403.
@@ -141,7 +149,11 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
   (local DB applied 29 Oct 2026; Neon applied 29 Oct 2026 with the owner's consent via `ALLOW_REMOTE_SEED=1 npm run db:seed:simplified-law`
   – Northstar: 10 categories, 17 laws, 6 demo answers). Re-running only adds missing categories / laws and never overwrites company edits.
 - Browser-pane testing: the in-app browser pane can be hidden (viewport 0×0) – `read_page` then returns an empty page; set a size with
-  `resize_window` first. Law stat-card grids need `grid-cols-1` on phones (long hints otherwise widen the page).
+  `resize_window` first. Law stat-card grids need `grid-cols-1` on phones (long hints otherwise widen the page). While the pane is
+  hidden `requestAnimationFrame` does not run, so React never reveals streamed Suspense boundaries on slower pages (e.g. the
+  header ☆ stays in a hidden `<div>`): run `$RV($RB)` in the page or show the pane – not an app bug.
+- Search-page state lives in the URL (`src/lib/url-state.ts`, `src/hooks/use-url-state.ts`). Write URLs only through its helpers:
+  in Next 16.3 a `history.replaceState` whose state carries Next's `__NA` marker does not update `useSearchParams`.
 - Risk "Save as document (PDF)": each click stores a new PDF upload (usable 24 h); unused ones stay in storage like abandoned
   browser uploads (no clean-up job yet). The Print page opens the browser print dialog itself – in the in-app browser pane
   that dialog blocks the page; test Print through the menu with `window.print` stubbed.

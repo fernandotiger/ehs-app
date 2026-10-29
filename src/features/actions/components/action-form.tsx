@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { isStaleVersion, StaleVersionAlert } from "@/components/common/stale-version-alert";
+import { LoadingCards } from "@/components/common/states";
 import { UserPicker } from "@/components/common/user-picker";
 import { PageHeader } from "@/components/layout/page-header";
 import { useCurrentUser } from "@/components/providers/current-user-provider";
@@ -17,6 +18,9 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useFavouriteSeed } from "@/features/favourites/api";
+import { FavouriteSeedBanner } from "@/features/favourites/components/seed-banner";
+import { useFavouriteCapture } from "@/features/favourites/use-favourite-capture";
 import { usePublishedForms, useQuestionnaireSnapshot } from "@/features/forms/api";
 import { QuestionnaireForm } from "@/features/forms/components/questionnaire-form";
 import { BlockerList } from "@/features/incidents/components/shared";
@@ -25,10 +29,12 @@ import { useLookups } from "@/features/shared/lookups";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { ACTION_FORM_MODULE, ACTION_FORM_PURPOSE, ACTION_PRIORITIES, ACTION_PRIORITY_LABELS, type ActionPriorityKey } from "@/lib/actions";
 import { ApiError, errorMessage } from "@/lib/api-client";
+import type { Snapshot } from "@/lib/favourites/snapshot";
 import { validateQuestionnaireAnswers, type FormValues, type QuestionnaireSnapshot } from "@/lib/forms";
 import { saveBlockers } from "@/server/modules/actions/workflow";
 import { useCreateAction, useUpdateAction, type ActionDetailDto } from "../api";
 import { addDaysLocal, blockersOf, todayLocal } from "../format";
+import { mergeAction, pickAction } from "./action-seed";
 
 interface Values {
   title: string;
@@ -39,6 +45,8 @@ interface Values {
   departmentId: string | null;
   answers: FormValues;
 }
+
+export type ActionFormValues = Values;
 
 function fieldErrorsOf(error: unknown): Record<string, string> {
   const details = error instanceof ApiError ? (error.details as { fieldErrors?: Record<string, string> } | undefined) : undefined;
@@ -97,21 +105,38 @@ function standardErrors(v: Values, edit?: { createdOn: string; currentDueDate: s
 
 // ── Create Action page ──────────────────────────────────────────────────────
 
-/** Create Action: the standard fields plus the extra questions of a published Actions form (if any). */
+/**
+ * Create Action: the standard fields plus the extra questions of a published Actions form (if any).
+ * Opened from a favourite (`?fav=`), it starts from the values kept with it (action-seed.ts).
+ */
 export function CreateActionForm() {
+  const seed = useFavouriteSeed("action.create");
+  const lookups = useLookups();
+  if (seed.status === "loading" || (seed.seed && lookups.isPending)) return <LoadingCards count={2} />;
+  return <CreateActionFormBody key={seed.favId ?? "new"} seed={seed.seed} departmentIds={lookups.data?.departments.map((d) => d.id)} />;
+}
+
+function CreateActionFormBody({ seed, departmentIds }: { seed: Snapshot | null; departmentIds?: readonly string[] }) {
   const router = useRouter();
   const { user } = useCurrentUser();
   const lookups = useLookups();
   const [clientId] = useState(() => crypto.randomUUID());
-  const [start] = useState<Values>(() => ({
-    title: "",
-    description: "",
-    ownerId: user?.id ?? null,
-    dueDate: addDaysLocal(todayLocal(), 14),
-    priority: "NORMAL",
-    departmentId: user?.departmentId ?? null,
-    answers: {},
-  }));
+  // A favourite's kept values are merged here, once, so the restored form is not "dirty".
+  const [setup] = useState(() => {
+    const fresh: Values = {
+      title: "",
+      description: "",
+      ownerId: user?.id ?? null,
+      dueDate: addDaysLocal(todayLocal(), 14),
+      priority: "NORMAL",
+      departmentId: user?.departmentId ?? null,
+      answers: {},
+    };
+    if (!seed) return { fresh, start: fresh, form: null };
+    const merged = mergeAction(fresh, seed, { departmentIds });
+    return { fresh, start: merged.values, form: merged.form };
+  });
+  const start = setup.start;
   const [v, setV] = useState<Values>(start);
   const [chosenForm, setChosenForm] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
@@ -124,9 +149,21 @@ export function CreateActionForm() {
 
   const siteId = lookups.data?.departments.find((d) => d.id === v.departmentId)?.siteId;
   const forms = usePublishedForms(ACTION_FORM_MODULE, ACTION_FORM_PURPOSE, siteId);
-  const versionId = forms.data?.length ? (forms.data.find((f) => f.versionId === chosenForm)?.versionId ?? forms.data[0]!.versionId) : null;
+  // A favourite's "Type of action": the same version, else the same form's current version.
+  const seededForm =
+    chosenForm === null && setup.form ? (forms.data?.find((f) => f.versionId === setup.form?.versionId) ?? forms.data?.find((f) => f.formId === setup.form?.formId)) : undefined;
+  const versionId = forms.data?.length ? (forms.data.find((f) => f.versionId === chosenForm)?.versionId ?? seededForm?.versionId ?? forms.data[0]!.versionId) : null;
   const snapshot = useQuestionnaireSnapshot(versionId, siteId ?? null);
   const errors = standardErrors(v);
+
+  // Favourites star: keeps the fields and the text / choice answers (never the due date or files).
+  useFavouriteCapture("action.create", () =>
+    pickAction(
+      v,
+      setup.fresh,
+      snapshot.data ? { formId: snapshot.data.formId, versionId: snapshot.data.versionId, fields: snapshot.data.fields, chosen: chosenForm !== null || Boolean(seededForm) } : null,
+    ),
+  );
 
   async function save() {
     setBlockers([]);
@@ -163,6 +200,7 @@ export function CreateActionForm() {
       {guard.dialog}
       <PageHeader title="Create action" description="Give someone a job to do that is not part of an incident or a risk assessment." backHref="/actions" backLabel="My Actions" />
       <div className="mx-auto max-w-3xl space-y-4">
+        {seed && <FavouriteSeedBanner sendLabel="Create action" className="mb-0" />}
         <Card>
           <CardHeader>
             <CardTitle>The action</CardTitle>

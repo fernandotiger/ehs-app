@@ -3,7 +3,6 @@
 import { ClipboardCheck, ClipboardList, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useState } from "react";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -12,8 +11,9 @@ import { useCurrentUser } from "@/components/providers/current-user-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useUrlSearchText, useUrlState } from "@/hooks/use-url-state";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { LibraryStatusFilter } from "@/lib/validation/documents";
+import { libraryQuerySchema, type LibraryStatusFilter } from "@/lib/validation/documents";
 import { useDocumentLibrary, type LibraryItem } from "../../api";
 import { audienceLabel, DOCUMENT_STATUS_META, formatDate } from "../../format";
 import { surveyPageHref } from "../../survey-format";
@@ -21,6 +21,8 @@ import { FilterSelect, SearchBox } from "../filters";
 import { answersLabel } from "./survey-indicator";
 
 const PAGE_SIZE = 20;
+/** URL state; `type` is fixed to "survey". */
+const urlSchema = libraryQuerySchema.pick({ page: true, q: true, status: true, createdBy: true });
 
 const STATUS_OPTIONS: { id: LibraryStatusFilter; name: string }[] = [
   { id: "PUBLISHED", name: "Published" },
@@ -62,12 +64,9 @@ export function SurveyLibrary() {
   const router = useRouter();
   const { can } = useCurrentUser();
   const canManage = can(PERMISSIONS.DOCUMENTS_MANAGE);
-  const [search, setSearch] = useState("");
-  const q = useDeferredValue(search.trim());
-  const [status, setStatus] = useState<LibraryStatusFilter>("ACTIVE");
-  const [createdBy, setCreatedBy] = useState<"me" | undefined>();
-  const [page, setPage] = useState(1);
-  const library = useDocumentLibrary({ page, pageSize: PAGE_SIZE, q: q || undefined, status, type: "survey", createdBy });
+  const [{ page, q, status, createdBy }, set] = useUrlState(urlSchema);
+  const [search, setSearch] = useUrlSearchText();
+  const library = useDocumentLibrary({ page, pageSize: PAGE_SIZE, q, status, type: "survey", createdBy });
   const filtered = Boolean(q || createdBy || status !== "ACTIVE");
 
   return (
@@ -88,30 +87,17 @@ export function SurveyLibrary() {
 
       <Card className="mb-4 gap-0 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
-          <SearchBox
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              setPage(1);
-            }}
-            placeholder="Search inductions"
-          />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search inductions" />
           <FilterSelect
             value={status === "ACTIVE" ? undefined : status}
-            onChange={(v) => {
-              setStatus((v as LibraryStatusFilter | undefined) ?? "ACTIVE");
-              setPage(1);
-            }}
+            onChange={(v) => set({ status: (v as LibraryStatusFilter | undefined) ?? "ACTIVE" })}
             options={STATUS_OPTIONS}
             allLabel="Active (published & drafts)"
             ariaLabel="Status"
           />
           <FilterSelect
             value={createdBy}
-            onChange={(v) => {
-              setCreatedBy(v === "me" ? "me" : undefined);
-              setPage(1);
-            }}
+            onChange={(v) => set({ createdBy: v === "me" ? "me" : undefined })}
             options={CREATOR_OPTIONS}
             allLabel="Created by anyone"
             ariaLabel="Created by"
@@ -202,7 +188,7 @@ export function SurveyLibrary() {
             </Table>
           </div>
           <div className="border-t px-3">
-            <PaginationBar page={page} pageSize={PAGE_SIZE} total={library.data.total} onPageChange={setPage} />
+            <PaginationBar page={page} pageSize={PAGE_SIZE} total={library.data.total} onPageChange={(p) => set({ page: p })} />
           </div>
         </Card>
       )}

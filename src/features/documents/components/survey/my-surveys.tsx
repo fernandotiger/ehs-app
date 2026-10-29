@@ -2,14 +2,14 @@
 
 import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardCheck, ClipboardList, CloudOff } from "lucide-react";
 import Link from "next/link";
-import { useDeferredValue, useState } from "react";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge, type BadgeTone } from "@/components/common/status-badge";
 import { PageBanner } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { MySurveyFilter } from "@/lib/validation/documents";
+import { useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
+import { MY_SURVEY_FILTERS, mySurveysQuerySchema, type MySurveyFilter } from "@/lib/validation/documents";
 import { cn } from "@/lib/utils";
 import { usePendingAcknowledgements, type MyDocumentItem } from "../../api";
 import { formatDate, relativeDue } from "../../format";
@@ -19,6 +19,8 @@ import { SearchBox } from "../filters";
 import { BannerStat } from "../my-documents";
 
 const PAGE_SIZE = 20;
+/** URL state (the `filter` tab is read with `useUrlTab`). */
+const urlSchema = mySurveysQuerySchema.omit({ pageSize: true, filter: true });
 
 /** Plain labels for the reader's own list (the document lists use "Induction to complete" etc.). */
 const STATUS_META: Record<MySurveyStatus, { label: string; tone: BadgeTone }> = {
@@ -78,11 +80,11 @@ function SurveyRow({ item, ackPending, answerPending }: { item: MyDocumentItem; 
 
 /** My Employee Inductions (menu "My Inductions") – the employee's list of document surveys to complete (kept out of My Documents). */
 export function MySurveys() {
-  const [filter, setFilter] = useState<MySurveyFilter>("all");
-  const [search, setSearch] = useState("");
-  const q = useDeferredValue(search.trim());
-  const [page, setPage] = useState(1);
-  const query = useMySurveys({ page, pageSize: PAGE_SIZE, filter, q: q || undefined });
+  const tab = useUrlTab<MySurveyFilter>("filter", "all", MY_SURVEY_FILTERS);
+  const filter = tab.value;
+  const [{ page, q }, set] = useUrlState(urlSchema);
+  const [search, setSearch] = useUrlSearchText();
+  const query = useMySurveys({ page, pageSize: PAGE_SIZE, filter, q });
   const ackPending = usePendingAcknowledgements();
   const answerPending = usePendingSurveyAnswers();
   const summary = query.data?.summary;
@@ -98,13 +100,7 @@ export function MySurveys() {
       </PageBanner>
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs
-          value={filter}
-          onValueChange={(v) => {
-            setFilter(v as MySurveyFilter);
-            setPage(1);
-          }}
-        >
+        <Tabs {...tab}>
           <TabsList className="h-9 w-full sm:w-fit">
             <TabsTrigger value="all" className="px-3">
               All
@@ -121,14 +117,7 @@ export function MySurveys() {
           </TabsList>
         </Tabs>
         <div className="lg:w-80">
-          <SearchBox
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              setPage(1);
-            }}
-            placeholder="Search inductions"
-          />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search inductions" />
         </div>
       </div>
 
@@ -153,7 +142,7 @@ export function MySurveys() {
           </ul>
           {query.data.total > PAGE_SIZE && (
             <div className="border-t px-3">
-              <PaginationBar page={page} pageSize={PAGE_SIZE} total={query.data.total} onPageChange={setPage} />
+              <PaginationBar page={page} pageSize={PAGE_SIZE} total={query.data.total} onPageChange={(p) => set({ page: p })} />
             </div>
           )}
         </Card>

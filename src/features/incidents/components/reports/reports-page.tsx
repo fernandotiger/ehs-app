@@ -1,9 +1,10 @@
 "use client";
 
 import { Download, LineChart, Printer, Search, Sparkles } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { UserPicker } from "@/components/common/user-picker";
 import { PageHeader } from "@/components/layout/page-header";
@@ -18,33 +19,50 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useLookup } from "@/features/shared/lookups";
+import { useUrlState, useUrlTab } from "@/hooks/use-url-state";
 import { errorMessage } from "@/lib/api-client";
 import { CAUSE_GROUP_LABELS, CAUSE_GROUPS, CAUSE_LISTS } from "@/lib/incidents";
 import { PERMISSIONS } from "@/lib/permissions";
-import { REPORT_KEYS, type ReportKey } from "@/lib/validation/incidents";
-import { toQueryString, useCreateTrendAction, useIncidentTypes, useReport, useTrendPreview, type TrendPreviewDto } from "../../api";
+import { optionalId } from "@/lib/validation/common";
+import { dateString, REPORT_KEYS, type ReportKey } from "@/lib/validation/incidents";
+import { trendCriteriaErrors } from "@/server/modules/incidents/workflow";
+import { toQueryString, useCreateTrendAction, useIncidentTypes, useReport, useTrendPreviewQuery, type TrendPreviewDto } from "../../api";
 import { addDaysLocal, blockersOf, formatDate, todayLocal } from "../../format";
 import { DepartmentSelect, SimpleSelect, SiteSelect } from "../fields";
 import { BarList, BlockerList, SeverityBadge } from "../shared";
 
 type TabKey = ReportKey | "trends";
+const TAB_KEYS: readonly TabKey[] = [...REPORT_KEYS, "trends"];
+/**
+ * URL state: the period and site of the standard reports (left out = this year to today, all sites) and the Trends
+ * criteria, written when "Preview matches" is pressed so an opened favourite runs the preview at once.
+ */
+const urlSchema = z.object({
+  from: dateString.optional(),
+  to: dateString.optional(),
+  siteId: optionalId,
+  typeId: optionalId,
+  subtypeId: optionalId,
+  causeId: optionalId,
+  departmentId: optionalId,
+});
+type UrlState = z.output<typeof urlSchema>;
+type UrlPatch = Partial<z.input<typeof urlSchema>>;
+const NO_PAGE: readonly string[] = [];
 
 /** Standard incident reports (period/site, CSV, print) and Trends & prevention. */
 export function IncidentReportsPage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const tabParam = params.get("tab") as TabKey | null;
-  const tab: TabKey = tabParam && (tabParam === "trends" || (REPORT_KEYS as readonly string[]).includes(tabParam)) ? tabParam : "by-type";
-  const year = todayLocal().slice(0, 4);
-  const [from, setFrom] = useState(`${year}-01-01`);
-  const [to, setTo] = useState(todayLocal());
-  const [siteId, setSiteId] = useState<string | null>(null);
+  const tab = useUrlTab<TabKey>("tab", "by-type", TAB_KEYS);
+  const current = tab.value;
+  const [state, set] = useUrlState(urlSchema, { resetKeys: NO_PAGE });
+  const from = state.from ?? `${todayLocal().slice(0, 4)}-01-01`;
+  const to = state.to ?? todayLocal();
+  const siteId = state.siteId;
 
   return (
     <>
       <PageHeader title="Incident reports" description="Standard reports for a period and site – download as CSV or print. Trends & prevention finds repeating events." />
-      <Tabs value={tab} onValueChange={(v) => router.replace(`${pathname}?tab=${v}`, { scroll: false })} className="mb-4" data-print-hide>
+      <Tabs {...tab} className="mb-4" data-print-hide>
         <div className="-mx-3 overflow-x-auto px-3 md:mx-0 md:px-0">
           <TabsList>
             {REPORT_KEYS.map((k) => (
@@ -58,27 +76,27 @@ export function IncidentReportsPage() {
           </TabsList>
         </div>
       </Tabs>
-      {tab === "trends" ? (
-        <TrendsTab />
+      {current === "trends" ? (
+        <TrendsTab state={state} set={set} />
       ) : (
         <>
           <Card className="mb-4 gap-0 p-3" data-print-hide>
             <div className="grid gap-2 sm:grid-cols-[auto_auto_minmax(12rem,16rem)_1fr] sm:items-end">
               <Field>
                 <FieldLabel htmlFor="rep-from">From</FieldLabel>
-                <Input id="rep-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+                <UrlDateInput id="rep-from" value={from} onChange={(v) => set({ from: v })} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="rep-to">To</FieldLabel>
-                <Input id="rep-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                <UrlDateInput id="rep-to" value={to} onChange={(v) => set({ to: v })} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="rep-site">Site</FieldLabel>
-                <SiteSelect id="rep-site" value={siteId} onChange={setSiteId} allowNone noneLabel="All sites" />
+                <SiteSelect id="rep-site" value={siteId} onChange={(v) => set({ siteId: v })} allowNone noneLabel="All sites" />
               </Field>
               <div className="flex flex-wrap gap-2 sm:justify-end">
                 <Button asChild variant="outline">
-                  <a href={`/api/incidents/reports/${tab}?${toQueryString({ from, to, siteId, format: "csv" })}`}>
+                  <a href={`/api/incidents/reports/${current}?${toQueryString({ from, to, siteId, format: "csv" })}`}>
                     <Download /> CSV
                   </a>
                 </Button>
@@ -88,10 +106,29 @@ export function IncidentReportsPage() {
               </div>
             </div>
           </Card>
-          <ReportView reportKey={tab} from={from} to={to} siteId={siteId} />
+          <ReportView reportKey={current} from={from} to={to} siteId={siteId} />
         </>
       )}
     </>
+  );
+}
+
+/** Date box bound to the URL: a cleared or half-typed date stays in the box (not written) until it is complete. */
+function UrlDateInput({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <Input
+      id={id}
+      type="date"
+      value={draft ?? value}
+      onChange={(e) => {
+        if (e.target.value) {
+          setDraft(null);
+          onChange(e.target.value);
+        } else setDraft("");
+      }}
+      onBlur={() => setDraft(null)}
+    />
   );
 }
 
@@ -158,7 +195,7 @@ function ReportView({ reportKey, from, to, siteId }: { reportKey: ReportKey; fro
   );
 }
 
-function TrendsTab() {
+function TrendsTab({ state, set }: { state: UrlState; set: (patch: UrlPatch) => void }) {
   const { can } = useCurrentUser();
   const types = useIncidentTypes(true);
   const causeLists = {
@@ -169,24 +206,30 @@ function TrendsTab() {
     WORKPLACE: useLookup(CAUSE_LISTS.WORKPLACE),
   };
   const causes = CAUSE_GROUPS.flatMap((g) => (causeLists[g].data ?? []).map((c) => ({ value: c.id, label: `${CAUSE_GROUP_LABELS[g]} → ${c.label}` })));
-  const [criteria, setCriteria] = useState({ from: addDaysLocal(todayLocal(), -30), to: todayLocal(), typeId: null as string | null, subtypeId: null as string | null, causeId: null as string | null, departmentId: null as string | null });
-  const preview = useTrendPreview();
-  const [selected, setSelected] = useState<string[]>([]);
-  const [result, setResult] = useState<TrendPreviewDto | null>(null);
-  const [blockers, setBlockers] = useState<string[]>([]);
+  // Criteria of the last preview, kept in the URL (dates left out = the last 30 days).
+  const saved = { from: state.from ?? addDaysLocal(todayLocal(), -30), to: state.to ?? todayLocal(), typeId: state.typeId, subtypeId: state.subtypeId, causeId: state.causeId, departmentId: state.departmentId };
+  const savedKey = JSON.stringify(saved);
+  // Half-entered criteria stay local until "Preview matches"; a URL change from outside (a link, Back) replaces them.
+  const [criteria, setCriteria] = useState(saved);
+  const [seen, setSeen] = useState(savedKey);
+  const [checkBlockers, setCheckBlockers] = useState<string[]>([]);
+  if (savedKey !== seen) {
+    setSeen(savedKey);
+    setCriteria(saved);
+    setCheckBlockers([]);
+  }
+  const ready = Boolean(saved.typeId || saved.subtypeId || saved.causeId);
+  const preview = useTrendPreviewQuery(saved, ready);
+  const serverBlockers = preview.isError ? blockersOf(preview.error) : [];
+  const blockers = checkBlockers.length ? checkBlockers : serverBlockers;
   const type = types.data?.find((t) => t.id === criteria.typeId);
 
-  async function run() {
-    setBlockers([]);
-    try {
-      const r = await preview.mutateAsync(criteria);
-      setResult(r);
-      setSelected(r.matches.map((m) => m.id));
-    } catch (error) {
-      setBlockers(blockersOf(error));
-      setResult(null);
-      if (!blockersOf(error).length) toast.error(errorMessage(error));
-    }
+  function run() {
+    const errors = trendCriteriaErrors(criteria);
+    setCheckBlockers(errors);
+    if (errors.length) return;
+    if (JSON.stringify(criteria) === savedKey) void preview.refetch();
+    else set(criteria);
   }
 
   return (
@@ -222,66 +265,81 @@ function TrendsTab() {
             <DepartmentSelect id="t-dept" value={criteria.departmentId} onChange={(v) => setCriteria({ ...criteria, departmentId: v })} allowNone noneLabel="Any department" />
           </Field>
           <div className="sm:col-span-2 lg:col-span-3">
-            <Button onClick={() => void run()} disabled={preview.isPending}>
-              {preview.isPending ? <Spinner /> : <Search />} Preview matches
+            <Button onClick={run} disabled={preview.isFetching}>
+              {preview.isFetching ? <Spinner /> : <Search />} Preview matches
             </Button>
           </div>
         </CardContent>
       </Card>
       <BlockerList title="Check the criteria" blockers={blockers} />
-      {result && (
-        <>
-          <div className="grid gap-4 md:grid-cols-2">
-            {(
-              [
-                ["By type / subtype", result.summary.byType],
-                ["By severity", result.summary.bySeverity],
-                ["By department", result.summary.byDepartment],
-                ["By cause", result.summary.byCause],
-              ] as const
-            ).map(([title, items]) => (
-              <Card key={title}>
-                <CardHeader>
-                  <CardTitle>{title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <BarList items={[...items]} empty="Nothing to show." />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <Card>
+      {ready &&
+        !checkBlockers.length &&
+        !serverBlockers.length &&
+        (preview.isPending ? (
+          <LoadingRows rows={4} />
+        ) : preview.isError ? (
+          <ErrorState error={preview.error} onRetry={() => preview.refetch()} />
+        ) : (
+          <TrendResult key={preview.dataUpdatedAt} result={preview.data} canCreate={can(PERMISSIONS.INCIDENT_ACTION_CREATE)} />
+        ))}
+    </div>
+  );
+}
+
+/** Preview result; every match starts selected (remounted for each new preview). */
+function TrendResult({ result, canCreate }: { result: TrendPreviewDto; canCreate: boolean }) {
+  const [selected, setSelected] = useState<string[]>(() => result.matches.map((m) => m.id));
+  return (
+    <>
+      <div className="grid gap-4 md:grid-cols-2">
+        {(
+          [
+            ["By type / subtype", result.summary.byType],
+            ["By severity", result.summary.bySeverity],
+            ["By department", result.summary.byDepartment],
+            ["By cause", result.summary.byCause],
+          ] as const
+        ).map(([title, items]) => (
+          <Card key={title}>
             <CardHeader>
-              <CardTitle>
-                {result.matches.length} matching incident{result.matches.length === 1 ? "" : "s"}
-              </CardTitle>
-              <CardDescription>Select the incidents the preventive action should address.</CardDescription>
+              <CardTitle>{title}</CardTitle>
             </CardHeader>
             <CardContent>
-              {result.matches.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No incidents match.</p>
-              ) : (
-                <ul className="divide-y rounded-lg border">
-                  {result.matches.map((m) => (
-                    <li key={m.id} className="flex items-center gap-3 p-2.5 text-sm">
-                      <Checkbox checked={selected.includes(m.id)} onCheckedChange={(c) => setSelected(c ? [...selected, m.id] : selected.filter((x) => x !== m.id))} aria-label={`Select ${m.reference}`} />
-                      <span className="min-w-0 flex-1">
-                        <span className="font-medium">{m.reference}</span> · {m.title}
-                        <span className="block text-xs text-muted-foreground">
-                          {formatDate(m.occurredAt)} · {[m.typeLabel, m.subtypeLabel].filter(Boolean).join(" · ")} · {m.departmentName ?? "No department"}
-                        </span>
-                      </span>
-                      <SeverityBadge severity={m.severity} />
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <BarList items={[...items]} empty="Nothing to show." />
             </CardContent>
           </Card>
-          {can(PERMISSIONS.INCIDENT_ACTION_CREATE) && result.matches.length > 0 && <PreventiveActionForm preview={result} selected={selected} />}
-        </>
-      )}
-    </div>
+        ))}
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {result.matches.length} matching incident{result.matches.length === 1 ? "" : "s"}
+          </CardTitle>
+          <CardDescription>Select the incidents the preventive action should address.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {result.matches.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No incidents match.</p>
+          ) : (
+            <ul className="divide-y rounded-lg border">
+              {result.matches.map((m) => (
+                <li key={m.id} className="flex items-center gap-3 p-2.5 text-sm">
+                  <Checkbox checked={selected.includes(m.id)} onCheckedChange={(c) => setSelected(c ? [...selected, m.id] : selected.filter((x) => x !== m.id))} aria-label={`Select ${m.reference}`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium">{m.reference}</span> · {m.title}
+                    <span className="block text-xs text-muted-foreground">
+                      {formatDate(m.occurredAt)} · {[m.typeLabel, m.subtypeLabel].filter(Boolean).join(" · ")} · {m.departmentName ?? "No department"}
+                    </span>
+                  </span>
+                  <SeverityBadge severity={m.severity} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+      {canCreate && result.matches.length > 0 && <PreventiveActionForm preview={result} selected={selected} />}
+    </>
   );
 }
 

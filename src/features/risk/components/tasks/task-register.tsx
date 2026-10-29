@@ -2,8 +2,9 @@
 
 import { ListChecks, Plus, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -16,37 +17,31 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FilterSelect, SearchBox } from "@/features/documents/components/filters";
 import { structureOptions, useLookups } from "@/features/shared/lookups";
+import { countActiveFilters, URL_ALL, useUrlSearchText, useUrlState } from "@/hooks/use-url-state";
 import { PERMISSIONS } from "@/lib/permissions";
 import { TASK_KIND_LABELS, TASK_KIND_SHORT, TASK_KINDS, TASK_STATUS_LABELS, TASK_STATUSES } from "@/lib/risk/labels";
+import { taskListQuerySchema } from "@/lib/validation/risk";
 import { useRiskTasks, type TaskListParams } from "../../api";
 import { formatDate } from "../../format";
 import { TaskStatusBadge } from "../shared";
 import { TaskFormSheet } from "./task-form-sheet";
 
 const PAGE_SIZE = 20;
+/** Register state kept in the URL; `status` defaults to open work, so "Any status" is written as `status=all`. */
+const urlSchema = taskListQuerySchema.omit({ pageSize: true, programmeId: true, assessmentId: true }).extend({
+  status: z.enum([...TASK_STATUSES, "ACTIVE", URL_ALL]).default("ACTIVE"),
+});
 
 /** Risk tasks register (RA and MP tasks, sub-tasks included). */
 export function TaskRegister() {
   const router = useRouter();
-  const params = useSearchParams();
   const { can } = useCurrentUser();
-  const [search, setSearch] = useState(params.get("q") ?? "");
-  const q = useDeferredValue(search.trim());
-  const [filters, setFilters] = useState<Omit<TaskListParams, "page" | "pageSize" | "q">>({
-    status: (params.get("status") as TaskListParams["status"]) ?? "ACTIVE",
-    overdue: params.get("overdue") === "true" ? "true" : undefined,
-    mine: params.get("mine") === "true" ? "true" : undefined,
-    sort: "dueDate",
-    dir: "asc",
-  });
-  const [page, setPage] = useState(1);
+  const [filters, set] = useUrlState(urlSchema);
+  const status = filters.status === URL_ALL ? undefined : filters.status;
+  const [search, setSearch] = useUrlSearchText();
   const [creating, setCreating] = useState(false);
   const structure = structureOptions(useLookups().data);
-  const list = useRiskTasks({ page, pageSize: PAGE_SIZE, q: q || undefined, ...filters });
-  const set = (patch: Partial<typeof filters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-    setPage(1);
-  };
+  const list = useRiskTasks({ ...filters, status, pageSize: PAGE_SIZE });
   const moreActive = [filters.ownerId, filters.mine, filters.topLevel].filter(Boolean).length;
 
   return (
@@ -64,9 +59,9 @@ export function TaskRegister() {
       />
       <Card className="mb-4 gap-2 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search reference or title" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search reference or title" />
           <FilterSelect
-            value={filters.status}
+            value={status}
             onChange={(v) => set({ status: v as TaskListParams["status"] })}
             options={[{ id: "ACTIVE", name: "Open or in progress" }, ...TASK_STATUSES.map((s) => ({ id: s, name: TASK_STATUS_LABELS[s] }))]}
             allLabel="Any status"
@@ -94,7 +89,7 @@ export function TaskRegister() {
       ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => list.refetch()} />
       ) : list.data.items.length === 0 ? (
-        <EmptyState icon={ListChecks} title="No tasks found" description={q ? "Try a different search or filter." : "Tasks are raised from an assessment's Tasks tab or a management programme."} />
+        <EmptyState icon={ListChecks} title="No tasks found" description={countActiveFilters(filters, urlSchema) ? "Try a different search or filter." : "Tasks are raised from an assessment's Tasks tab or a management programme."} />
       ) : (
         <Card className="gap-0 overflow-hidden py-0">
           <ul className="divide-y md:hidden">
@@ -150,7 +145,7 @@ export function TaskRegister() {
             </Table>
           </div>
           <div className="border-t px-3">
-            <PaginationBar page={page} pageSize={PAGE_SIZE} total={list.data.total} onPageChange={setPage} />
+            <PaginationBar page={filters.page} pageSize={PAGE_SIZE} total={list.data.total} onPageChange={(page) => set({ page })} />
           </div>
         </Card>
       )}

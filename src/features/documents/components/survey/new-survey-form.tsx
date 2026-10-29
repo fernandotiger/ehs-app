@@ -8,12 +8,18 @@ import { useEffect, useRef, useState } from "react";
 import { useForm, type Control } from "react-hook-form";
 import { toast } from "sonner";
 import { FileDropzone } from "@/components/common/file-dropzone";
+import { LoadingCards } from "@/components/common/states";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { useFavouriteSeed } from "@/features/favourites/api";
+import { FavouriteSeedBanner } from "@/features/favourites/components/seed-banner";
+import { useFavouriteCapture } from "@/features/favourites/use-favourite-capture";
+import { useLookups } from "@/features/shared/lookups";
 import { useSystemSettings } from "@/features/shared/settings";
 import { errorMessage } from "@/lib/api-client";
-import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/settings/system";
+import type { Snapshot } from "@/lib/favourites/snapshot";
+import { DEFAULT_SYSTEM_SETTINGS, type SystemSettings } from "@/lib/settings/system";
 import { uploadFile } from "@/lib/upload-client";
 import { z } from "zod";
 import { ackSettingsSchema, audienceSchema, EMPTY_AUDIENCE, type CreateSurveyDocumentInput, type UpdateDocumentInput } from "@/lib/validation/documents";
@@ -22,8 +28,10 @@ import { useSurveySettings } from "../../survey-api";
 import { draftToInput, emptyDraft, exampleDraft, SURVEY_EXAMPLES, surveyPageHref, validateDraft, type SurveyDraft, type SurveyDraftUpdater, type SurveyExampleKey } from "../../survey-format";
 import { AckSettingsFields } from "../manage/ack-settings-fields";
 import { AudienceBuilder } from "../manage/audience-builder";
+import { knownStructureOf, type KnownStructure } from "../manage/document-seed";
 import { FormSection } from "../manage/form-section";
 import { SurveyBuilder } from "./survey-builder";
+import { mergeSurvey, pickSurvey } from "./survey-seed";
 
 type Intent = "publish" | "draft";
 
@@ -32,6 +40,20 @@ type SettingsValues = Pick<CreateSurveyDocumentInput, "audience" | "ack">;
 
 function blankDraft(defaultDueDays: number): SurveyDraft {
   return { ...emptyDraft("", defaultDueDays), title: "" };
+}
+
+function freshSettings(settings: SystemSettings): SettingsValues {
+  return {
+    audience: EMPTY_AUDIENCE,
+    ack: {
+      // The survey has its own "Everyone must complete it"; confirming the file is an extra step to opt into.
+      requiresAcknowledgement: false,
+      ackDueDays: settings.defaultAckDueDays,
+      reminderIntervalDays: settings.defaultReminderIntervalDays,
+      escalationDays: settings.defaultEscalationDays,
+      escalationTarget: "MANAGER",
+    },
+  };
 }
 
 /** Ready-made question sets; they replace the questions, the title and settings stay. */
@@ -56,8 +78,16 @@ function ExampleStarters({ onPick, disabled }: { onPick: (example: SurveyExample
  * Survey page (Documents → Survey): questions → optional file people read first → audiences →
  * acknowledgement (only with a file) → publish or save draft. No document details: the survey
  * title and introduction become the document's title and description.
+ * Opened from a favourite (`?fav=`), it starts from the settings and questions kept with it (survey-seed.ts).
  */
 export function NewSurveyForm() {
+  const seed = useFavouriteSeed("survey.new");
+  const lookups = useLookups();
+  if (seed.status === "loading" || (seed.seed && lookups.isPending)) return <LoadingCards count={3} />;
+  return <SurveyCreateForm key={seed.favId ?? "new"} seed={seed.seed} known={knownStructureOf(lookups.data)} />;
+}
+
+function SurveyCreateForm({ seed, known }: { seed: Snapshot | null; known: KnownStructure }) {
   const router = useRouter();
   const settingsQuery = useSystemSettings();
   const settings = settingsQuery.data ?? DEFAULT_SYSTEM_SETTINGS;
@@ -66,7 +96,12 @@ export function NewSurveyForm() {
   const [files, setFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [intent, setIntent] = useState<Intent | null>(null);
-  const [survey, setSurvey] = useState<SurveyDraft>(() => blankDraft(surveyDefaults.defaultDueDays));
+  // A favourite's kept settings and questions are merged here, once, so the restored page is not "dirty".
+  const [start] = useState(() => {
+    const fresh = { draft: blankDraft(surveyDefaults.defaultDueDays), settings: freshSettings(settings) };
+    return seed ? mergeSurvey(fresh, seed, { known }) : { ...fresh, ackKept: false };
+  });
+  const [survey, setSurvey] = useState<SurveyDraft>(start.draft);
   const [showSurveyErrors, setShowSurveyErrors] = useState(false);
   const surveyRef = useRef<HTMLDivElement>(null);
   const updateSurvey: SurveyDraftUpdater = (change) => setSurvey((d) => change(d));
@@ -80,29 +115,23 @@ export function NewSurveyForm() {
 
   const form = useForm<SettingsValues>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: {
-      audience: EMPTY_AUDIENCE,
-      ack: {
-        // The survey has its own "Everyone must complete it"; confirming the file is an extra step to opt into.
-        requiresAcknowledgement: false,
-        ackDueDays: settings.defaultAckDueDays,
-        reminderIntervalDays: settings.defaultReminderIntervalDays,
-        escalationDays: settings.defaultEscalationDays,
-        escalationTarget: "MANAGER",
-      },
-    },
+    defaultValues: start.settings,
   });
   // The shared audience / acknowledgement fields only touch the `audience` and `ack` paths.
   const control = form.control as unknown as Control<UpdateDocumentInput>;
 
-  // Apply the real system defaults once loaded, unless the user already changed them.
+  // Apply the real system defaults once loaded, unless the user already changed them (or a favourite set them).
   const settingsLoaded = !settingsQuery.isPlaceholderData && Boolean(settingsQuery.data);
+  const ackKept = start.ackKept;
   useEffect(() => {
-    if (!settingsLoaded || form.getFieldState("ack").isDirty) return;
+    if (!settingsLoaded || ackKept || form.getFieldState("ack").isDirty) return;
     form.setValue("ack.ackDueDays", settings.defaultAckDueDays);
     form.setValue("ack.reminderIntervalDays", settings.defaultReminderIntervalDays);
     form.setValue("ack.escalationDays", settings.defaultEscalationDays);
-  }, [settingsLoaded, settings.defaultAckDueDays, settings.defaultReminderIntervalDays, settings.defaultEscalationDays, form]);
+  }, [settingsLoaded, ackKept, settings.defaultAckDueDays, settings.defaultReminderIntervalDays, settings.defaultEscalationDays, form]);
+
+  // Favourites star: keeps the settings and the questions as drafted, never the file.
+  useFavouriteCapture("survey.new", () => pickSurvey(survey, blankDraft(surveyDefaults.defaultDueDays), form.getValues(), freshSettings(settings)));
 
   const busy = intent !== null;
   const surveyErrors = showSurveyErrors ? validateDraft(survey) : {};
@@ -166,6 +195,7 @@ export function NewSurveyForm() {
           </Button>
         }
       />
+      {seed && <FavouriteSeedBanner sendLabel="Save as draft or Publish now" className="max-w-4xl" />}
 
       <form className="max-w-4xl space-y-4 pb-4" onSubmit={(e) => e.preventDefault()} noValidate>
         <div ref={surveyRef} className="scroll-mt-20">

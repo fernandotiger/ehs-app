@@ -18,13 +18,18 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { useFormVersion, usePublishedForms } from "@/features/forms/api";
+import { useFavouriteSeed, type FavouriteSeed } from "@/features/favourites/api";
+import { FavouriteSeedBanner } from "@/features/favourites/components/seed-banner";
+import { useFavouriteCapture } from "@/features/favourites/use-favourite-capture";
+import { useFormVersion, usePublishedForms, type PublishedFormDto } from "@/features/forms/api";
 import { PublishedFormSelect } from "@/features/forms/components/published-form-select";
 import { QuestionnaireForm } from "@/features/forms/components/questionnaire-form";
 import { DepartmentSelect, LookupLabelSelect } from "@/features/incidents/components/fields";
 import { useDepartmentName, useDepartmentSite } from "@/features/incidents/components/fields";
+import { useLookups } from "@/features/shared/lookups";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { errorMessage } from "@/lib/api-client";
+import type { Snapshot } from "@/lib/favourites/snapshot";
 import { fieldsForSite, validateQuestionnaireAnswers, type FormValues } from "@/lib/forms";
 import { readRiskSettings, type RiskFormSettings } from "@/lib/forms/settings";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -37,6 +42,7 @@ import { draftBlockers, submitBlockers } from "@/server/modules/risk/workflow";
 import { useCreateAssessment, useHazardOptions, useUpdateAssessment, type AssessmentDetailDto } from "../../api";
 import { blockersOf, formatDate, todayLocal } from "../../format";
 import { BlockerList, ScoreChip } from "../shared";
+import { mergeAssessment, pickAssessment } from "./assessment-seed";
 import { HazardEditor, newHazard, type HazardDraft } from "./hazard-editor";
 import { HeatMap } from "./heat-map";
 
@@ -63,6 +69,8 @@ interface Values {
   hazards: HazardDraft[];
   answers: FormValues;
 }
+
+export type AssessmentWizardValues = Values;
 
 function initialValues(a: AssessmentDetailDto | undefined, userId: string): Values {
   if (a) {
@@ -122,10 +130,27 @@ function initialValues(a: AssessmentDetailDto | undefined, userId: string): Valu
   };
 }
 
-/** Three-step create / edit flow: Scope → Hazards & aspects → Review & decide. */
+/**
+ * Three-step create / edit flow: Scope → Hazards & aspects → Review & decide. A new assessment opened
+ * from a favourite (`?fav=`) starts from the values kept with it (assessment-seed.ts); editing never
+ * reads or offers favourite values.
+ */
 export function AssessmentWizard({ assessment }: { assessment?: AssessmentDetailDto }) {
+  return assessment ? <WizardLoader assessment={assessment} seed={NO_SEED} /> : <NewAssessmentWizard />;
+}
+
+const NO_SEED: FavouriteSeed = { status: "none", seed: null, favId: null };
+
+/** A new assessment: may start from a favourite's kept values (reads `?fav=` – the edit page never does). */
+function NewAssessmentWizard() {
+  const seed = useFavouriteSeed("risk.assessment");
+  return <WizardLoader seed={seed} />;
+}
+
+function WizardLoader({ assessment, seed }: { assessment?: AssessmentDetailDto; seed: FavouriteSeed }) {
   const forms = usePublishedForms("risk");
-  if (!assessment && forms.isPending) return <LoadingCards count={3} />;
+  const lookups = useLookups();
+  if (!assessment && (forms.isPending || seed.status === "loading" || (seed.seed && lookups.isPending))) return <LoadingCards count={3} />;
   if (!assessment && !forms.data?.length) {
     return (
       <EmptyState
@@ -140,15 +165,39 @@ export function AssessmentWizard({ assessment }: { assessment?: AssessmentDetail
       />
     );
   }
-  return <Wizard assessment={assessment} />;
+  return (
+    <Wizard
+      key={seed.favId ?? "new"}
+      assessment={assessment}
+      seed={seed.seed}
+      publishedForms={forms.data ?? []}
+      departmentIds={lookups.data?.departments.map((d) => d.id)}
+    />
+  );
 }
 
-function Wizard({ assessment }: { assessment?: AssessmentDetailDto }) {
+function Wizard({
+  assessment,
+  seed,
+  publishedForms,
+  departmentIds,
+}: {
+  assessment?: AssessmentDetailDto;
+  seed?: Snapshot | null;
+  publishedForms: readonly PublishedFormDto[];
+  departmentIds?: readonly string[];
+}) {
   const router = useRouter();
   const { user, can, canAt } = useCurrentUser();
   const create = useCreateAssessment();
   const update = useUpdateAssessment(assessment?.id ?? "");
-  const [initial] = useState(() => initialValues(assessment, user.id));
+  // A favourite's kept values are merged here, once, so the restored form is not "dirty".
+  const [start] = useState(() => {
+    const fresh = initialValues(assessment, user.id);
+    if (assessment || !seed) return { fresh, initial: fresh };
+    return { fresh, initial: mergeAssessment(fresh, seed, { forms: publishedForms, today: todayLocal(), departmentIds }) };
+  });
+  const initial = start.initial;
   const [values, setValues] = useState<Values>(initial);
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState<AssessmentDecision | null>(null);
@@ -181,6 +230,13 @@ function Wizard({ assessment }: { assessment?: AssessmentDetailDto }) {
     });
     return { missing, errors: result.errors };
   }, [custom, values.answers]);
+
+  // Favourites star (new assessments only): keeps the scope and the hazards / aspects.
+  useFavouriteCapture(
+    "risk.assessment",
+    () => pickAssessment(values, start.fresh, { formId: publishedForms.find((f) => f.versionId === values.formVersionId)?.formId ?? null, fields: custom.fields }),
+    { enabled: !assessment },
+  );
 
   const placement = { businessUnitId: null, siteId, locationId: null, departmentId: values.departmentId };
   const facts = rules
@@ -309,7 +365,8 @@ function Wizard({ assessment }: { assessment?: AssessmentDetailDto }) {
         backHref={assessment ? `/risk/assessments/${assessment.id}` : "/risk/assessments"}
         backLabel={assessment ? assessment.reference : "Assessments"}
       />
-      {stale && <StaleVersionAlert className="mb-4" draft={values} draftName="risk-assessment" onReload={() => window.location.reload()} />}
+      {seed && !assessment && <FavouriteSeedBanner sendLabel="Save draft or Submit for approval" />}
+      {stale &&<StaleVersionAlert className="mb-4" draft={values} draftName="risk-assessment" onReload={() => window.location.reload()} />}
 
       <nav aria-label="Progress" className="mb-4">
         <div className="mb-2 flex items-center justify-between text-sm md:hidden">

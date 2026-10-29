@@ -2,8 +2,9 @@
 
 import { ChevronRight, Flag, Gauge, Layers, Plus } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { PageHeader } from "@/components/layout/page-header";
@@ -13,32 +14,37 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilterSelect, SearchBox } from "@/features/documents/components/filters";
 import { structureOptions, useLookups } from "@/features/shared/lookups";
+import { URL_ALL, useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
 import { PERMISSIONS } from "@/lib/permissions";
 import { TARGET_DIRECTION_LABELS } from "@/lib/risk/labels";
+import { strategyListQuerySchema } from "@/lib/validation/risk";
 import { useObjectives, useProgrammes, useTargets, type StrategyListParams } from "../../api";
 import { formatDate, formatNumber } from "../../format";
 import { ProgressBar, StrategyStatusBadge } from "../shared";
 import { StrategyFormSheet, type StrategySheet } from "./strategy-forms";
 
 type Tab = "objectives" | "targets" | "programmes";
+const TABS: readonly Tab[] = ["objectives", "targets", "programmes"];
 const PAGE_SIZE = 20;
+/** URL state (the tab is read with `useUrlTab`); `status` defaults to "Not completed", so "Any status" is `status=all`. */
+const urlSchema = strategyListQuerySchema.pick({ page: true, q: true, siteId: true }).extend({
+  status: z.enum(["ACTIVE", "COMPLETED", "PLANNED", "OPEN", URL_ALL]).default("OPEN"),
+});
 
 /** Objectives · Targets · Programmes with drill-down (objective → targets → programmes → tasks). */
 export function StrategyPage() {
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
   const { can } = useCurrentUser();
-  const tabParam = params.get("tab");
-  const tab: Tab = tabParam === "targets" || tabParam === "programmes" ? tabParam : "objectives";
-  const [search, setSearch] = useState("");
-  const q = useDeferredValue(search.trim());
-  const [status, setStatus] = useState<StrategyListParams["status"]>("OPEN");
-  const [siteId, setSiteId] = useState<string | undefined>();
-  const [page, setPage] = useState(1);
+  const tabState = useUrlTab<Tab>("tab", "objectives", TABS);
+  const tab = tabState.value;
+  const [filters, set] = useUrlState(urlSchema);
+  const { page, siteId } = filters;
+  const status = filters.status === URL_ALL ? undefined : filters.status;
+  const [search, setSearch] = useUrlSearchText();
   const [sheet, setSheet] = useState<StrategySheet | null>(null);
   const structure = structureOptions(useLookups().data);
-  const query: StrategyListParams = { page, pageSize: PAGE_SIZE, q: q || undefined, status, siteId };
+  const setPage = (p: number) => set({ page: p });
+  const query: StrategyListParams = { ...filters, status, pageSize: PAGE_SIZE };
   const objectives = useObjectives(query, tab === "objectives");
   const targets = useTargets(query, tab === "targets");
   const programmes = useProgrammes(query, tab === "programmes");
@@ -58,7 +64,7 @@ export function StrategyPage() {
           ) : undefined
         }
       />
-      <Tabs value={tab} onValueChange={(v) => { router.replace(`${pathname}?tab=${v}`, { scroll: false }); setPage(1); }} className="mb-3">
+      <Tabs {...tabState} className="mb-3">
         <TabsList>
           <TabsTrigger value="objectives">
             <Flag className="size-3.5" /> Objectives
@@ -73,14 +79,14 @@ export function StrategyPage() {
       </Tabs>
       <Card className="mb-4 gap-2 p-3">
         <div className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search by title" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search by title" />
           <FilterSelect
             value={status}
-            onChange={(v) => { setStatus(v as StrategyListParams["status"]); setPage(1); }}
+            onChange={(v) => set({ status: v as StrategyListParams["status"] })}
             options={[{ id: "OPEN", name: "Not completed" }, ...(tab === "programmes" ? [{ id: "PLANNED", name: "Planned" }] : []), { id: "ACTIVE", name: "Active" }, { id: "COMPLETED", name: "Completed" }]}
             allLabel="Any status"
           />
-          <FilterSelect value={siteId} onChange={(v) => { setSiteId(v); setPage(1); }} options={structure.sites} allLabel="All sites" />
+          <FilterSelect value={siteId ?? undefined} onChange={(v) => set({ siteId: v ?? null })} options={structure.sites} allLabel="All sites" />
         </div>
       </Card>
 

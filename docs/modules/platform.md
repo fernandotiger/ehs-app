@@ -43,7 +43,8 @@ To plug a new entity type in: write `<module>/<entity>.entity.ts` implementing `
 - Tests cover `scopeWhere/canAt/requireAt` (`src/server/auth/authorization.test.ts`) and `normalisePermissions` + default roles.
 
 ## Navigation & pages
-- `src/components/layout/nav-config.ts`: `TOP_ITEMS` (Home `/dashboard`, My work `/my-work`) + `NAV_SECTIONS` (each module
+- `src/components/layout/nav-config.ts`: `TOP_ITEMS` (Home `/dashboard`, My work `/my-work`, Favourites `/favourites` – see
+  `docs/modules/favourites.md`; every new page needs an entry in `src/lib/favourites/route-registry.ts`) + `NAV_SECTIONS` (each module
   section has `module: "<key>"`, filtered by `enabledModules` and item permissions). Sidebar sections are collapsible
   (the one holding the current page opens); sidebar header shows the organisation name. Mobile bottom nav: Home, My work,
   Documents (if enabled), Menu.

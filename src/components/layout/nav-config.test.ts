@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { PERMISSIONS } from "@/lib/permissions";
-import { changesPage, findActiveHref, visibleSections } from "./nav-config";
+import { allNavItems, changesPage, findActiveHref, TOP_ITEMS, visibleSections } from "./nav-config";
+
+describe("top items", () => {
+  it("shows Favourites right after My work to everyone (no module, no permission)", () => {
+    expect(TOP_ITEMS.map((i) => i.title)).toEqual(["Home", "My work", "Favourites"]);
+    const favourites = TOP_ITEMS.find((i) => i.href === "/favourites");
+    expect(favourites?.permissions).toBeUndefined();
+    const items = allNavItems({ permissions: [], enabledModules: [] });
+    expect(items.map((i) => i.href)).toEqual(["/dashboard", "/my-work", "/favourites"]);
+    expect(findActiveHref("/favourites", items)).toBe("/favourites");
+  });
+});
 
 const documentsItems = (permissions: (typeof PERMISSIONS)[keyof typeof PERMISSIONS][]) =>
   visibleSections({ permissions, enabledModules: ["documents"] }).find((s) => s.key === "documents")?.items ?? [];

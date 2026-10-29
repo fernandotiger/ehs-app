@@ -1,4 +1,4 @@
-import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, Library, ListChecks, ListTodo, MapPinned, Scale, Settings, ShieldAlert, ShieldCheck, SlidersHorizontal, SquareCheckBig, SquarePen, SquarePlus, Target, TriangleAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, Library, ListChecks, ListTodo, MapPinned, Scale, Settings, ShieldAlert, ShieldCheck, SlidersHorizontal, SquareCheckBig, SquarePen, SquarePlus, Star, Target, TriangleAlert, type LucideIcon } from "lucide-react";
 import { CONFIGURATION_PERMISSIONS } from "@/features/configuration/hub-cards";
 import type { ModuleKey } from "@/lib/modules";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -29,6 +29,8 @@ export interface NavUser {
 export const TOP_ITEMS: NavItem[] = [
   { title: "Home", href: "/dashboard", icon: LayoutDashboard },
   { title: "My work", href: "/my-work", icon: Inbox },
+  // Personal shortcuts to search / create pages and websites (platform feature: no module, no permission).
+  { title: "Favourites", href: "/favourites", icon: Star },
 ];
 
 /**

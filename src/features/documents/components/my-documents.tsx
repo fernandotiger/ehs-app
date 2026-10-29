@@ -2,14 +2,14 @@
 
 import { AlertTriangle, BookOpenCheck, ChevronRight, ClipboardCheck, FileStack } from "lucide-react";
 import Link from "next/link";
-import { useDeferredValue, useState } from "react";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
 import { PageBanner } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { MyDocumentFilter } from "@/lib/validation/documents";
+import { useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
+import { MY_DOCUMENT_FILTERS, myDocumentsQuerySchema, type MyDocumentFilter } from "@/lib/validation/documents";
 import { cn } from "@/lib/utils";
 import { usePendingAcknowledgements, useMyDocuments, type MyDocumentItem } from "../api";
 import { usePendingSurveyAnswers } from "../survey-api";
@@ -21,6 +21,8 @@ import { SurveyBadge } from "./survey/survey-badge";
 import { TagChips } from "./tag-chips";
 
 const PAGE_SIZE = 20;
+/** URL state (the `filter` tab is read with `useUrlTab`). */
+const urlSchema = myDocumentsQuerySchema.omit({ pageSize: true, filter: true });
 
 export function BannerStat({ label, value, icon: Icon, highlight }: { label: string; value: number | string; icon: typeof FileStack; highlight?: boolean }) {
   return (
@@ -70,19 +72,15 @@ function DocumentRow({ doc, pending, surveyPending }: { doc: MyDocumentItem; pen
 
 /** My Documents – the simple employee view of documents assigned to them. */
 export function MyDocuments() {
-  const [filter, setFilter] = useState<MyDocumentFilter>("all");
-  const [search, setSearch] = useState("");
-  const q = useDeferredValue(search.trim());
-  const [categoryId, setCategoryId] = useState<string | undefined>();
-  const [tagId, setTagId] = useState<string | undefined>();
-  const [page, setPage] = useState(1);
-  const query = useMyDocuments({ page, pageSize: PAGE_SIZE, filter, q: q || undefined, categoryId, tagId });
+  const tab = useUrlTab<MyDocumentFilter>("filter", "all", MY_DOCUMENT_FILTERS);
+  const filter = tab.value;
+  const [{ page, q, categoryId, tagId }, set] = useUrlState(urlSchema);
+  const [search, setSearch] = useUrlSearchText();
+  const query = useMyDocuments({ page, pageSize: PAGE_SIZE, filter, q, categoryId, tagId });
   const searching = Boolean(q || categoryId || tagId);
   const pending = usePendingAcknowledgements();
   const pendingSurveys = usePendingSurveyAnswers();
   const summary = query.data?.summary;
-
-  const reset = () => setPage(1);
 
   return (
     <>
@@ -95,13 +93,7 @@ export function MyDocuments() {
       </PageBanner>
 
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <Tabs
-          value={filter}
-          onValueChange={(v) => {
-            setFilter(v as MyDocumentFilter);
-            reset();
-          }}
-        >
+        <Tabs {...tab}>
           <TabsList className="h-9 w-full sm:w-fit">
             <TabsTrigger value="all" className="px-3">
               All
@@ -118,29 +110,9 @@ export function MyDocuments() {
           </TabsList>
         </Tabs>
         <div className="grid gap-2 sm:grid-cols-[1fr_180px_180px] xl:w-[600px]">
-          <SearchBox
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              reset();
-            }}
-            placeholder="Search documents or tags"
-          />
-          <CategoryFilter
-            value={categoryId}
-            onChange={(v) => {
-              setCategoryId(v);
-              reset();
-            }}
-          />
-          <TagFilter
-            scope="mine"
-            value={tagId}
-            onChange={(v) => {
-              setTagId(v);
-              reset();
-            }}
-          />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search documents or tags" />
+          <CategoryFilter value={categoryId} onChange={(v) => set({ categoryId: v })} />
+          <TagFilter scope="mine" value={tagId} onChange={(v) => set({ tagId: v })} />
         </div>
       </div>
 
@@ -169,7 +141,7 @@ export function MyDocuments() {
           </ul>
           {query.data.total > PAGE_SIZE && (
             <div className="border-t px-3">
-              <PaginationBar page={page} pageSize={PAGE_SIZE} total={query.data.total} onPageChange={setPage} />
+              <PaginationBar page={page} pageSize={PAGE_SIZE} total={query.data.total} onPageChange={(p) => set({ page: p })} />
             </div>
           )}
         </Card>

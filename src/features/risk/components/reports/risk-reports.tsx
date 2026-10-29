@@ -1,8 +1,7 @@
 "use client";
 
 import { Download, LineChart, Printer } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { z } from "zod";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,8 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SiteSelect } from "@/features/incidents/components/fields";
+import { useUrlState, useUrlTab } from "@/hooks/use-url-state";
+import { optionalId } from "@/lib/validation/common";
 import { RISK_REPORT_KEYS, RISK_REPORT_LABELS, type RiskReportKey } from "@/lib/validation/risk";
 import { toQueryString, useRiskReport } from "../../api";
 import { formatDate } from "../../format";
@@ -26,16 +27,22 @@ const SHORT: Record<RiskReportKey, string> = {
   "task-summary": "7 · Task summary",
 };
 
+/** URL state: optional period and site (the report itself is the `report` tab key). */
+const urlSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  siteId: optionalId,
+});
+const NO_PAGE: readonly string[] = [];
+
 /** Risk reports 1–7: site + optional period, CSV export and print / save as PDF. */
 export function RiskReportsPage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const keyParam = params.get("report") as RiskReportKey | null;
-  const key: RiskReportKey = keyParam && (RISK_REPORT_KEYS as readonly string[]).includes(keyParam) ? keyParam : "by-department";
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [siteId, setSiteId] = useState<string | null>(null);
+  const reportTab = useUrlTab<RiskReportKey>("report", "by-department", RISK_REPORT_KEYS);
+  const key = reportTab.value;
+  const [state, set] = useUrlState(urlSchema, { resetKeys: NO_PAGE });
+  const from = state.from ?? "";
+  const to = state.to ?? "";
+  const siteId = state.siteId;
   const valid = !from || !to || from <= to;
   const report = useRiskReport(key, { from: from || undefined, to: to || undefined, siteId: siteId ?? undefined }, valid);
 
@@ -50,7 +57,7 @@ export function RiskReportsPage() {
               id="rr-key"
               className="h-9 rounded-md border bg-card px-2 text-sm"
               value={key}
-              onChange={(e) => router.replace(`${pathname}?report=${e.target.value}`, { scroll: false })}
+              onChange={(e) => reportTab.onValueChange(e.target.value)}
             >
               {RISK_REPORT_KEYS.map((k) => (
                 <option key={k} value={k}>
@@ -61,15 +68,15 @@ export function RiskReportsPage() {
           </Field>
           <Field>
             <FieldLabel htmlFor="rr-from">From</FieldLabel>
-            <Input id="rr-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input id="rr-from" type="date" value={from} onChange={(e) => set({ from: e.target.value || undefined })} />
           </Field>
           <Field>
             <FieldLabel htmlFor="rr-to">To</FieldLabel>
-            <Input id="rr-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <Input id="rr-to" type="date" value={to} onChange={(e) => set({ to: e.target.value || undefined })} />
           </Field>
           <Field>
             <FieldLabel htmlFor="rr-site">Site</FieldLabel>
-            <SiteSelect id="rr-site" value={siteId} onChange={setSiteId} allowNone noneLabel="All sites" />
+            <SiteSelect id="rr-site" value={siteId} onChange={(v) => set({ siteId: v })} allowNone noneLabel="All sites" />
           </Field>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">

@@ -41,11 +41,16 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { UserMultiPicker } from "@/components/common/user-picker";
+import { useFavouriteSeed, type FavouriteSeed } from "@/features/favourites/api";
+import { FavouriteSeedBanner } from "@/features/favourites/components/seed-banner";
+import { useFavouriteCapture } from "@/features/favourites/use-favourite-capture";
 import { QuestionnaireForm } from "@/features/forms/components/questionnaire-form";
+import { useLookups } from "@/features/shared/lookups";
 import { useSystemSettings } from "@/features/shared/settings";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import { ApiError, errorMessage } from "@/lib/api-client";
+import type { Snapshot } from "@/lib/favourites/snapshot";
 import { fieldsForSite, repeatedDefaultKeys, validateQuestionnaireAnswers, type FormValues, type QuestionnaireSnapshot } from "@/lib/forms";
 import { SEVERITIES, SEVERITY_LABELS, type Severity } from "@/lib/incidents";
 import { enqueue, stageFile } from "@/lib/offline/outbox";
@@ -59,6 +64,7 @@ import { addDaysLocal, blockersOf, fromLocalInput, toLocalInput, todayLocal } fr
 import { DepartmentSelect, LookupLabelSelect, SimpleSelect, useDepartmentName, useDepartmentSite } from "../fields";
 import { BlockerList } from "../shared";
 import { EMPTY_PERSON, PeopleEditor } from "./people-editor";
+import { mergeReport, pickReport, REPORT_SYSTEM_KEYS } from "./report-seed";
 import { applyTypeChoice } from "./type-choice";
 
 const STEPS = ["Type of event", "What & where", "People & first aid", "Review & submit"] as const;
@@ -76,9 +82,9 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   "safety-comment": Lightbulb,
   other: CircleQuestionMark,
 };
-const SYSTEM_KEYS = ["incidentTitle", "occurredAt", "site", "whatHappened"];
+const SYSTEM_KEYS = REPORT_SYSTEM_KEYS;
 
-interface ReportValues {
+export interface ReportValues {
   typeId: string;
   subtypeId: string | null;
   severity: Severity;
@@ -157,9 +163,23 @@ function initialValues(types: ReportSetupTypeDto[], incident?: IncidentDetailDto
  * Report an incident in four steps – type of event, what & where, people, review – or edit an
  * existing report (opens on "What & where"). Draft can be saved at any time (type + title only).
  * Offline, the report is queued on the device and sent on Sync (same clientId).
+ * A new report opened from a favourite (`?fav=`) starts from the values kept with it (report-seed.ts).
  */
 export function ReportWizard({ incident }: { incident?: IncidentDetailDto }) {
+  return incident ? <WizardLoader incident={incident} seed={NO_SEED} /> : <NewReportWizard />;
+}
+
+const NO_SEED: FavouriteSeed = { status: "none", seed: null, favId: null };
+
+/** A new report: may start from a favourite's kept values (reads `?fav=` – edit pages never do). */
+function NewReportWizard() {
+  const seed = useFavouriteSeed("incident.report");
+  return <WizardLoader seed={seed} />;
+}
+
+function WizardLoader({ incident, seed }: { incident?: IncidentDetailDto; seed: FavouriteSeed }) {
   const setup = useReportSetup();
+  const lookups = useLookups();
   // The setup can already be restored from the device cache while this page hydrates; render the
   // same placeholder as the server first, otherwise React reports a hydration mismatch.
   const hydrated = useSyncExternalStore(
@@ -167,7 +187,7 @@ export function ReportWizard({ incident }: { incident?: IncidentDetailDto }) {
     () => true,
     () => false,
   );
-  if (!hydrated || setup.isPending) return <LoadingCards count={4} />;
+  if (!hydrated || setup.isPending || seed.status === "loading" || (seed.seed && lookups.isPending)) return <LoadingCards count={4} />;
   const types = setup.data ?? [];
   if (!types.length) {
     return (
@@ -178,10 +198,10 @@ export function ReportWizard({ incident }: { incident?: IncidentDetailDto }) {
       />
     );
   }
-  return <Wizard types={types} incident={incident} />;
+  return <Wizard key={seed.favId ?? "new"} types={types} incident={incident} seed={seed.seed} departmentIds={lookups.data?.departments.map((d) => d.id)} />;
 }
 
-function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: IncidentDetailDto }) {
+function Wizard({ types, incident, seed, departmentIds }: { types: ReportSetupTypeDto[]; incident?: IncidentDetailDto; seed?: Snapshot | null; departmentIds?: readonly string[] }) {
   const router = useRouter();
   const { user, can } = useCurrentUser();
   const online = useOnlineStatus();
@@ -189,9 +209,16 @@ function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: I
   const create = useCreateIncident();
   const update = useUpdateIncident(incident?.id ?? "");
   const command = useIncidentCommand(incident?.id ?? "");
-  const [initial] = useState(() => initialValues(types, incident));
+  // A favourite's kept values are merged here, once, so the restored form is not "dirty".
+  const [start] = useState(() => {
+    const fresh = initialValues(types, incident);
+    if (incident || !seed) return { fresh, initial: fresh, typeKept: false };
+    const merged = mergeReport(fresh, seed, { types, departmentIds });
+    return { fresh, initial: merged.values, typeKept: merged.typeKept };
+  });
+  const initial = start.initial;
   const [values, setValues] = useState<ReportValues>(initial);
-  const [step, setStep] = useState<number>(incident ? STEP.WHAT : STEP.TYPE);
+  const [step, setStep] = useState<number>(incident || start.typeKept ? STEP.WHAT : STEP.TYPE);
   // Subtype last chosen per type, so switching type and back keeps it.
   const subtypeMemory = useRef(new Map<string, string | null>());
   const [files, setFiles] = useState<File[]>([]);
@@ -225,6 +252,13 @@ function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: I
     const hidden = new Set([...SYSTEM_KEYS, ...repeatedDefaultKeys(snapshot.fields, "REPORT")]);
     return { ...snapshot, fields: snapshot.fields.filter((f) => !hidden.has(f.key)) };
   }, [snapshot]);
+
+  // Favourites star (new reports only): keeps the type and the "What & where" text. Switched off while
+  // "Report anonymously" is on – keeping the text under the reporter's account would link them to it.
+  useFavouriteCapture("incident.report", () => pickReport(values, start.fresh, customSnapshot?.fields ?? []), {
+    disabled: values.anonymous ? "anonymous" : false,
+    enabled: !incident,
+  });
 
   const set = (patch: Partial<ReportValues>) => setValues((v) => ({ ...v, ...patch }));
 
@@ -390,6 +424,7 @@ function Wizard({ types, incident }: { types: ReportSetupTypeDto[]; incident?: I
         backHref={incident ? `/incidents/${incident.id}` : "/incidents"}
         backLabel={incident ? incident.reference : "Incidents"}
       />
+      {seed && !incident && <FavouriteSeedBanner sendLabel="Submit report or Save draft" />}
       {!online && !incident && (
         <Alert className="mb-4 border-warning/40 bg-warning/10">
           <CloudOff className="size-4" />

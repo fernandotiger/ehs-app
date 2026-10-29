@@ -3,8 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { CloudUpload, Download, FilePlus2, Lock, RotateCcw, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -18,15 +17,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilterSelect, SearchBox } from "@/features/documents/components/filters";
 import { structureOptions, useLookups } from "@/features/shared/lookups";
+import { countActiveFilters, useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
 import { INCIDENT_STATUS_LABELS, INCIDENT_STATUSES, INVESTIGATION_STATUS_LABELS, SEVERITIES, SEVERITY_LABELS } from "@/lib/incidents";
 import { discardOperation, retryOperation, useOutbox } from "@/lib/offline/outbox";
 import { PERMISSIONS } from "@/lib/permissions";
+import { incidentListQuerySchema } from "@/lib/validation/incidents";
 import { toQueryString, useIncidents, useIncidentTypes, type IncidentListItem, type IncidentListParams } from "../../api";
 import { formatDate } from "../../format";
 import { IncidentStatusBadge, SeverityBadge } from "../shared";
 
 const PAGE_SIZE = 20;
 type View = "incidents" | "investigations";
+const VIEWS: readonly View[] = ["incidents", "investigations"];
+/** Register state kept in the URL (the `view` tab is read with `useUrlTab`). */
+const urlSchema = incidentListQuerySchema.omit({ pageSize: true, ownerId: true, view: true });
 
 const SORTS = [
   { id: "occurredAt", name: "Newest event first" },
@@ -82,30 +86,16 @@ export function PendingReports() {
 /** Incidents register with an Investigations tab: search (incl. searchable answers), filters, sorting, CSV. */
 export function IncidentRegister() {
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
   const { can } = useCurrentUser();
-  const view: View = params.get("view") === "investigations" ? "investigations" : "incidents";
-  const [search, setSearch] = useState(params.get("q") ?? "");
-  const q = useDeferredValue(search.trim());
-  const [filters, setFilters] = useState<Omit<IncidentListParams, "page" | "pageSize" | "q" | "view">>({
-    status: (params.get("status") as IncidentListParams["status"]) ?? undefined,
-    investigationStatus: (params.get("investigationStatus") as IncidentListParams["investigationStatus"]) ?? undefined,
-    mine: params.get("mine") === "true" ? "true" : undefined,
-    archived: "active",
-    sort: "occurredAt",
-    dir: "desc",
-  });
-  const [page, setPage] = useState(1);
+  const tab = useUrlTab<View>("view", "incidents", VIEWS);
+  const view = tab.value;
+  const [filters, set] = useUrlState(urlSchema);
+  const [search, setSearch] = useUrlSearchText();
   const lookups = useLookups();
   const types = useIncidentTypes(true);
   const structure = structureOptions(lookups.data);
-  const query: IncidentListParams = { page, pageSize: PAGE_SIZE, q: q || undefined, view, ...filters };
+  const query: IncidentListParams = { ...filters, pageSize: PAGE_SIZE, view };
   const list = useIncidents(query);
-  const set = (patch: Partial<typeof filters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-    setPage(1);
-  };
   const type = types.data?.find((t) => t.id === filters.typeId);
   const exportHref = `/api/incidents/export?${toQueryString({ ...query, page: undefined, pageSize: undefined })}`;
   const moreActive = [filters.subtypeId, filters.departmentId, filters.from, filters.to, filters.mine, filters.archived !== "active" ? "x" : undefined].filter(Boolean).length;
@@ -133,7 +123,7 @@ export function IncidentRegister() {
         }
       />
       <PendingReports />
-      <Tabs value={view} onValueChange={(v) => { router.replace(`${pathname}${v === "investigations" ? "?view=investigations" : ""}`, { scroll: false }); setPage(1); }} className="mb-3">
+      <Tabs {...tab} className="mb-3">
         <TabsList>
           <TabsTrigger value="incidents">Incidents</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
@@ -142,7 +132,7 @@ export function IncidentRegister() {
 
       <Card className="mb-4 gap-2 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search reference, title or answers" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search reference, title or answers" />
           {view === "investigations" ? (
             <FilterSelect
               value={filters.investigationStatus}
@@ -204,7 +194,7 @@ export function IncidentRegister() {
         <EmptyState
           icon={TriangleAlert}
           title={view === "investigations" ? "No investigations found" : "No incidents found"}
-          description={q || Object.values(filters).some((v) => v && v !== "active" && v !== "occurredAt" && v !== "desc") ? "Try a different search or filter." : "When something happens, report it – it only takes a minute."}
+          description={countActiveFilters(filters, urlSchema) ? "Try a different search or filter." : "When something happens, report it – it only takes a minute."}
           action={
             can(PERMISSIONS.INCIDENT_CREATE) ? (
               <Button asChild>
@@ -290,7 +280,7 @@ export function IncidentRegister() {
             </Table>
           </div>
           <div className="border-t px-3">
-            <PaginationBar page={page} pageSize={PAGE_SIZE} total={list.data.total} onPageChange={setPage} />
+            <PaginationBar page={filters.page} pageSize={PAGE_SIZE} total={list.data.total} onPageChange={(page) => set({ page })} />
           </div>
         </Card>
       )}

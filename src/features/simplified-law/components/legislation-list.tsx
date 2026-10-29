@@ -2,8 +2,9 @@
 
 import { ArrowRight, BookOpen, FileSearch, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingCards } from "@/components/common/states";
 import { PageHeader } from "@/components/layout/page-header";
@@ -13,17 +14,26 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { FilterSelect, SearchBox } from "@/features/documents/components/filters";
+import { useUrlSearchText, useUrlState } from "@/hooks/use-url-state";
 import { PERMISSIONS } from "@/lib/permissions";
 import { CHECK_FILTER_LABELS, CHECK_FILTERS, LEGAL_STATUSES, SLAW_BASE, slawLegislationHref, statusLabels, type CheckFilterKey, type LegalStatusKey, type StatusLabels } from "@/lib/simplified-law";
 import { registerSteps } from "@/lib/simplified-law/rules";
 import { cn } from "@/lib/utils";
+import { legislationListQuerySchema } from "@/lib/validation/simplified-law";
 import { useLegislationList, useSlawCategories, useSlawSettings, type LegislationListParams, type SlawCategoryNode, type SlawLegislationListItem } from "../api";
 import { OverviewSheet } from "./article-overview";
 import { categoryPath, LegalStatusBadge, OfficialLink, ProgressBadge, StepsBar } from "./shared";
 
 const PAGE_SIZE = 20;
 
-const isCheck = (v: string | null): v is CheckFilterKey => (CHECK_FILTERS as readonly string[]).includes(v ?? "");
+/**
+ * URL state. `category` is set by the step bar and sidebar links; `hideRepealed` is left out until the user flips
+ * the switch (then the company setting no longer decides).
+ */
+const urlSchema = legislationListQuerySchema.pick({ page: true, q: true, jurisdiction: true, status: true, check: true }).extend({
+  category: legislationListQuerySchema.shape.categoryId,
+  hideRepealed: z.enum(["true", "false"]).optional(),
+});
 
 function findCategory(tree: SlawCategoryNode[], id: string | null): { node: SlawCategoryNode; parent: SlawCategoryNode | null } | null {
   if (!id) return null;
@@ -37,31 +47,23 @@ function findCategory(tree: SlawCategoryNode[], id: string | null): { node: Slaw
 
 /** Storyboard step 2: all legislation of a (sub-)category with jurisdiction, status and a summary of each. */
 export function LegislationList() {
-  const params = useSearchParams();
   const router = useRouter();
   const { can } = useCurrentUser();
-  const categoryId = params.get("category");
+  // A link to another category is a new URL without `page`, so the page starts again at 1.
+  const [{ category, page, q, jurisdiction, status, check, hideRepealed }, set] = useUrlState(urlSchema);
+  const categoryId = category ?? null;
+  const filters: Pick<LegislationListParams, "jurisdiction" | "status" | "check"> = { jurisdiction, status, check };
   const settings = useSlawSettings();
   const categories = useSlawCategories();
   const labels = statusLabels(settings.data?.statusLabels);
-  const [search, setSearch] = useState(params.get("q") ?? "");
-  const q = useDeferredValue(search.trim());
-  const [filters, setFilters] = useState<Pick<LegislationListParams, "jurisdiction" | "status" | "check">>({ check: isCheck(params.get("check")) ? (params.get("check") as CheckFilterKey) : undefined });
-  const [hideRepealed, setHideRepealed] = useState<boolean | null>(null);
-  // The page resets when another category is opened from the step bar / sidebar.
-  const [paging, setPaging] = useState({ categoryId, page: 1 });
-  const page = paging.categoryId === categoryId ? paging.page : 1;
-  const setPage = (next: number) => setPaging({ categoryId, page: next });
+  const [search, setSearch] = useUrlSearchText();
   const [overviewId, setOverviewId] = useState<string | null>(null);
-  const hide = filters.status === "REPEALED" ? false : (hideRepealed ?? settings.data?.hideRepealed ?? true);
+  const hide = filters.status === "REPEALED" ? false : hideRepealed ? hideRepealed === "true" : (settings.data?.hideRepealed ?? true);
 
-  const list = useLegislationList({ page, pageSize: PAGE_SIZE, categoryId: categoryId ?? undefined, q: q || undefined, ...filters, hideRepealed: hide ? "true" : "false" });
+  const list = useLegislationList({ page, pageSize: PAGE_SIZE, categoryId: categoryId ?? undefined, q, ...filters, hideRepealed: hide ? "true" : "false" });
   const found = findCategory(categories.data ?? [], categoryId);
   const title = found ? (found.parent ? `${found.parent.name} › ${found.node.name}` : found.node.name) : "All legislation";
-  const set = (patch: Partial<typeof filters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-    setPage(1);
-  };
+  const setPage = (next: number) => set({ page: next });
   const filtered = Boolean(q || filters.jurisdiction || filters.status || filters.check);
   const backHref = found ? `${SLAW_BASE}?category=${found.parent?.id ?? found.node.id}` : SLAW_BASE;
 
@@ -86,13 +88,13 @@ export function LegislationList() {
 
       <Card className="mb-4 gap-0 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search title, number or summary" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search title, number or summary" />
           <FilterSelect value={filters.jurisdiction} onChange={(v) => set({ jurisdiction: v })} options={(settings.data?.jurisdictions ?? []).map((j) => ({ id: j, name: j }))} allLabel="Jurisdiction: all" ariaLabel="Jurisdiction" />
           <FilterSelect value={filters.status} onChange={(v) => set({ status: v as LegalStatusKey | undefined })} options={LEGAL_STATUSES.map((st) => ({ id: st, name: labels[st] }))} allLabel="Status: all" ariaLabel="Status" />
           <FilterSelect value={filters.check} onChange={(v) => set({ check: v as CheckFilterKey | undefined })} options={CHECK_FILTERS.map((c) => ({ id: c, name: CHECK_FILTER_LABELS[c] }))} allLabel="Our check: all" ariaLabel="Our check" />
         </div>
         <div className="mt-2 flex items-center gap-2">
-          <Switch id="hide-repealed" checked={hide} disabled={filters.status === "REPEALED"} onCheckedChange={(v) => { setHideRepealed(v); setPage(1); }} />
+          <Switch id="hide-repealed" checked={hide} disabled={filters.status === "REPEALED"} onCheckedChange={(v) => set({ hideRepealed: v ? "true" : "false" })} />
           <Label htmlFor="hide-repealed" className="text-sm font-normal text-muted-foreground">
             Hide {labels.REPEALED.toLowerCase()} laws
           </Label>

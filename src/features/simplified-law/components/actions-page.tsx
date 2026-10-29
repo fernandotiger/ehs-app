@@ -2,8 +2,8 @@
 
 import { AlarmClock, ArrowRight, CalendarClock, CheckCircle2, ListChecks, RotateCcw, UserCheck } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { isStaleVersion } from "@/components/common/stale-version-alert";
@@ -21,10 +21,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { FilterSelect, SearchBox } from "@/features/documents/components/filters";
+import { deferUrlPatch, useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
 import { errorMessage } from "@/lib/api-client";
 import { PERMISSIONS } from "@/lib/permissions";
-import { SLAW_BASE, slawLegislationHref } from "@/lib/simplified-law";
-import type { SlawActionListQuery } from "@/lib/validation/simplified-law";
+import { slawLegislationHref } from "@/lib/simplified-law";
+import { actionListQuerySchema, type SlawActionListQuery } from "@/lib/validation/simplified-law";
 import { cn } from "@/lib/utils";
 import { useCompleteSlawAction, useSlawAction, useSlawActions, useSlawActionSummary, type SlawActionItem } from "../api";
 import { blockersOf, formatDate, STALE_MESSAGE } from "../format";
@@ -33,6 +34,10 @@ import { Blockers } from "./shared";
 const PAGE_SIZE = 20;
 type View = SlawActionListQuery["view"];
 type Status = SlawActionListQuery["status"];
+const ALL_VIEWS: readonly View[] = ["mine", "all"];
+const OWN_VIEWS: readonly View[] = ["mine"];
+/** URL state (the `view` tab is read with `useUrlTab`); "Open and done" is `status=ALL`. */
+const urlSchema = actionListQuerySchema.pick({ page: true, q: true, status: true, overdue: true });
 
 function ActionBadge({ a }: { a: SlawActionItem }) {
   if (a.action.status === "DONE") return <StatusBadge tone="success">Done</StatusBadge>;
@@ -41,30 +46,28 @@ function ActionBadge({ a }: { a: SlawActionItem }) {
 
 /** "Actions to do": the storyboard's action tracker – every gap's action, with its owner and due date, until it is done. */
 export function SlawActions() {
-  const router = useRouter();
-  const params = useSearchParams();
   const { can } = useCurrentUser();
   const seesAll = can(PERMISSIONS.SLAW_VIEW) || can(PERMISSIONS.SLAW_ASSESS) || can(PERMISSIONS.SLAW_MANAGE);
-  const [view, setView] = useState<View>(params.get("view") === "all" && seesAll ? "all" : "mine");
-  const [status, setStatus] = useState<Status>("OPEN");
-  const [overdue, setOverdue] = useState<"true" | undefined>(params.get("overdue") === "true" ? "true" : undefined);
-  const [search, setSearch] = useState("");
-  const q = useDeferredValue(search.trim());
-  const [page, setPage] = useState(1);
-  const [openId, setOpenId] = useState<string | null>(params.get("open"));
+  // "Everyone's" needs a slaw.* permission: a saved `view=all` falls back to "Mine" without rewriting the URL.
+  const tab = useUrlTab<View>("view", "mine", seesAll ? ALL_VIEWS : OWN_VIEWS);
+  const view = tab.value;
+  const [{ page, q, status, overdue }, set] = useUrlState(urlSchema);
+  const [search, setSearch] = useUrlSearchText();
+  const setPage = (next: number) => set({ page: next });
+  // `?open=<requirement>` (notifications, My work) opens that action once and is then removed from the URL.
+  const openParam = useSearchParams().get("open");
+  const [openId, setOpenId] = useState<string | null>(openParam);
+  const [seenOpen, setSeenOpen] = useState(openParam);
+  if (openParam !== seenOpen) {
+    setSeenOpen(openParam);
+    if (openParam) setOpenId(openParam);
+  }
+  useEffect(() => (openParam ? deferUrlPatch({ open: null }) : undefined), [openParam]);
   const summary = useSlawActionSummary();
-  const list = useSlawActions({ page, pageSize: PAGE_SIZE, view, status, overdue, q: q || undefined });
+  const list = useSlawActions({ page, pageSize: PAGE_SIZE, view, status, overdue, q });
   const s = summary.data;
 
-  const changeView = (next: string) => {
-    setView(next as View);
-    setPage(1);
-    router.replace(next === "all" ? `${SLAW_BASE}/actions?view=all` : `${SLAW_BASE}/actions`, { scroll: false });
-  };
-  const close = () => {
-    setOpenId(null);
-    if (params.get("open")) router.replace(`${SLAW_BASE}/actions${view === "all" ? "?view=all" : ""}`, { scroll: false });
-  };
+  const close = () => setOpenId(null);
   const filtered = Boolean(q || overdue || status !== "OPEN");
 
   return (
@@ -78,7 +81,7 @@ export function SlawActions() {
       </div>
 
       {seesAll && (
-        <Tabs value={view} onValueChange={changeView} className="mb-3">
+        <Tabs {...tab} className="mb-3">
           <TabsList>
             <TabsTrigger value="mine">Mine</TabsTrigger>
             <TabsTrigger value="all">Everyone&apos;s</TabsTrigger>
@@ -87,15 +90,15 @@ export function SlawActions() {
       )}
       <Card className="mb-4 gap-0 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search action, requirement or law" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search action, requirement or law" />
           <FilterSelect
             value={status === "ALL" ? undefined : status}
-            onChange={(v) => { setStatus((v as Status | undefined) ?? "ALL"); setPage(1); }}
+            onChange={(v) => set({ status: (v as Status | undefined) ?? "ALL" })}
             options={[{ id: "OPEN", name: "Open" }, { id: "DONE", name: "Done" }]}
             allLabel="Open and done"
             ariaLabel="Status"
           />
-          <FilterSelect value={overdue} onChange={(v) => { setOverdue(v as "true" | undefined); setPage(1); }} options={[{ id: "true", name: "Overdue only" }]} allLabel="Any due date" ariaLabel="Due date" />
+          <FilterSelect value={overdue} onChange={(v) => set({ overdue: v as "true" | undefined })} options={[{ id: "true", name: "Overdue only" }]} allLabel="Any due date" ariaLabel="Due date" />
         </div>
       </Card>
 

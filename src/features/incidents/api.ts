@@ -258,6 +258,17 @@ export function useTrendPreview() {
   return useMutation({ mutationFn: (criteria: TrendCriteriaInput) => api.post<TrendPreviewDto>("/api/incidents/trends", criteria) });
 }
 
+/** Trends preview for criteria kept in the URL – runs as soon as complete criteria are there (e.g. an opened favourite). */
+export function useTrendPreviewQuery(criteria: TrendCriteriaInput, enabled: boolean) {
+  return useQuery({
+    queryKey: [...incidentKeys.all, "trends", criteria] as const,
+    queryFn: () => api.post<TrendPreviewDto>("/api/incidents/trends", criteria),
+    enabled,
+    refetchOnWindowFocus: false,
+    meta: noPersist,
+  });
+}
+
 export function useCreateTrendAction() {
   const invalidate = useInvalidate();
   return useMutation({ mutationFn: (input: TrendActionInput) => api.post<{ id: string; reference: string }>("/api/incidents/trends/actions", input), onSuccess: invalidate });

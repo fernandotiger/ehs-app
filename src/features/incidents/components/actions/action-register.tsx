@@ -2,8 +2,9 @@
 
 import { Download, ListChecks, Plus } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -15,8 +16,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilterSelect, SearchBox } from "@/features/documents/components/filters";
 import { structureOptions, useLookups } from "@/features/shared/lookups";
+import { URL_ALL, useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
 import { ACTION_KIND_LABELS, ACTION_KINDS, ACTION_STATE_LABELS, ACTION_STATES, PRIORITY_LABELS } from "@/lib/incidents";
 import { PERMISSIONS } from "@/lib/permissions";
+import { actionListQuerySchema } from "@/lib/validation/incidents";
 import { toQueryString, useActions, useTasks, type ActionListParams } from "../../api";
 import { formatDate } from "../../format";
 import { ActionStateBadge } from "../shared";
@@ -24,34 +27,27 @@ import { ActionFormSheet } from "./action-form-sheet";
 
 const PAGE_SIZE = 20;
 type View = "actions" | "tasks";
+const VIEWS: readonly View[] = ["actions", "tasks"];
+/** Register state kept in the URL; `state` and `done` default to open work, so "all" is written explicitly. */
+const urlSchema = actionListQuerySchema.pick({ page: true, q: true, kind: true, siteId: true, overdue: true, mine: true, sort: true, dir: true }).extend({
+  state: z.enum([...ACTION_STATES, "ACTIVE", URL_ALL]).default("ACTIVE"),
+  done: z.enum(["true", "false", URL_ALL]).default("false"),
+});
+const orUndefined = <T extends string>(v: T) => (v === URL_ALL ? undefined : (v as Exclude<T, typeof URL_ALL>));
 
 /** Actions register with a Tasks tab (child tasks of actions). */
 export function ActionRegister() {
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
   const { can } = useCurrentUser();
-  const view: View = params.get("view") === "tasks" ? "tasks" : "actions";
-  const [search, setSearch] = useState("");
-  const q = useDeferredValue(search.trim());
-  const [filters, setFilters] = useState<Omit<ActionListParams, "page" | "pageSize" | "q" | "view">>({
-    state: (params.get("state") as ActionListParams["state"]) ?? "ACTIVE",
-    mine: params.get("mine") === "true" ? "true" : undefined,
-    overdue: params.get("overdue") === "true" ? "true" : undefined,
-    done: "false",
-    sort: "dueDate",
-    dir: "asc",
-  });
-  const [page, setPage] = useState(1);
+  const tab = useUrlTab<View>("view", "actions", VIEWS);
+  const view = tab.value;
+  const [filters, set] = useUrlState(urlSchema);
+  const [search, setSearch] = useUrlSearchText();
   const [creating, setCreating] = useState(false);
   const structure = structureOptions(useLookups().data);
-  const query: ActionListParams = { page, pageSize: PAGE_SIZE, q: q || undefined, view, ...filters };
+  const query: ActionListParams = { ...filters, state: orUndefined(filters.state), done: orUndefined(filters.done), pageSize: PAGE_SIZE, view };
   const actions = useActions(query, view === "actions");
   const tasks = useTasks(query);
-  const set = (patch: Partial<typeof filters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-    setPage(1);
-  };
 
   return (
     <>
@@ -73,7 +69,7 @@ export function ActionRegister() {
           </>
         }
       />
-      <Tabs value={view} onValueChange={(v) => { router.replace(`${pathname}${v === "tasks" ? "?view=tasks" : ""}`, { scroll: false }); setPage(1); }} className="mb-3">
+      <Tabs {...tab} className="mb-3">
         <TabsList>
           <TabsTrigger value="actions">Actions</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
@@ -81,16 +77,16 @@ export function ActionRegister() {
       </Tabs>
       <Card className="mb-4 gap-0 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder={view === "tasks" ? "Search tasks or action reference" : "Search reference, description or incident"} />
+          <SearchBox value={search} onChange={setSearch} placeholder={view === "tasks" ? "Search tasks or action reference" : "Search reference, description or incident"} />
           {view === "actions" ? (
             <FilterSelect
-              value={filters.state}
+              value={orUndefined(filters.state)}
               onChange={(v) => set({ state: v as ActionListParams["state"] })}
               options={[{ id: "ACTIVE", name: "Not yet effective (open work)" }, ...ACTION_STATES.map((s) => ({ id: s, name: ACTION_STATE_LABELS[s] }))]}
               allLabel="All states"
             />
           ) : (
-            <FilterSelect value={filters.done} onChange={(v) => set({ done: v as "true" | "false" | undefined })} options={[{ id: "false", name: "Open tasks" }, { id: "true", name: "Done tasks" }]} allLabel="All tasks" />
+            <FilterSelect value={orUndefined(filters.done)} onChange={(v) => set({ done: v as "true" | "false" | undefined })} options={[{ id: "false", name: "Open tasks" }, { id: "true", name: "Done tasks" }]} allLabel="All tasks" />
           )}
           <FilterSelect value={filters.siteId ?? undefined} onChange={(v) => set({ siteId: v ?? null })} options={structure.sites} allLabel="All sites" />
           <FilterSelect
@@ -164,7 +160,7 @@ export function ActionRegister() {
               </Table>
             </div>
             <div className="border-t px-3">
-              <PaginationBar page={page} pageSize={PAGE_SIZE} total={actions.data.total} onPageChange={setPage} />
+              <PaginationBar page={filters.page} pageSize={PAGE_SIZE} total={actions.data.total} onPageChange={(page) => set({ page })} />
             </div>
           </Card>
         )
@@ -194,7 +190,7 @@ export function ActionRegister() {
             ))}
           </ul>
           <div className="border-t px-3">
-            <PaginationBar page={page} pageSize={PAGE_SIZE} total={tasks.data.total} onPageChange={setPage} />
+            <PaginationBar page={filters.page} pageSize={PAGE_SIZE} total={tasks.data.total} onPageChange={(page) => set({ page })} />
           </div>
         </Card>
       )}

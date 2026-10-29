@@ -1,0 +1,35 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Favourites (platform feature, sidebar "Favourites" under My work): personal shortcuts to
+// search and create pages (the saved URL holds filters, search text and tab) and to websites.
+// Owner-only, like notification read-marks: no audit records, hard delete (see
+// docs/modules/favourites.md). The route, default icon and seed key come from the route
+// registry (src/lib/favourites/route-registry.ts), so only the URL is stored.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum FavouriteKind {
+  PAGE
+  EXTERNAL
+}
+
+model Favourite {
+  id             String        @id @default(cuid())
+  organizationId String
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind           FavouriteKind
+  title          String        @db.VarChar(60)
+  /// ICON_NAMES entry (src/lib/favourites/icon-names.ts); null = the registry default.
+  icon           String?       @db.VarChar(40)
+  /// TILE_COLOURS name (src/lib/favourites/colours.ts); null = default (brand).
+  color          String?       @db.VarChar(20)
+  /// "/incidents/register?status=OPEN&view=investigations" (cleaned) or an https:// address.
+  url            String        @db.VarChar(2000)
+  /// Typed values of a create page (≤ 16 KB, sanitised, owner-only). Never in lists, audit or the persisted cache.
+  snapshot       Json?
+  sortOrder      Int
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId, userId, sortOrder])
+  @@map("favourites")
+}

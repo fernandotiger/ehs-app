@@ -13,6 +13,7 @@ are in `docs/modules/<module>.md`.
 | `06-document-surveys.md` | Document surveys | `docs/modules/document-surveys.md` |
 | `07-law.md` | Law module (+ Risk / Incident integration) | `docs/modules/law.md` |
 | `08-simplified-law.md` | Simplified law (the boss's storyboard, built next to Law) | `docs/modules/simplified-law.md` |
+| `09-favourites.md` | Favourites (bookmark search and create pages with their state, plus website links) | `docs/modules/favourites.md` |
 
 Phase 1 (multi-tenant platform foundation) is summarised in `docs/modules/platform.md`.
 **Template for the next modules (Audit, Inspection):** copy the structure of `05-risk.md` or `07-law.md`.

@@ -2,8 +2,7 @@
 
 import { ClipboardList, Download, FilePlus2, Lock, ScanLine, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -16,14 +15,18 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FilterSelect, SearchBox } from "@/features/documents/components/filters";
 import { structureOptions, useLookups } from "@/features/shared/lookups";
+import { countActiveFilters, useUrlSearchText, useUrlState } from "@/hooks/use-url-state";
 import { PERMISSIONS } from "@/lib/permissions";
 import { ASSESSMENT_STATUS_LABELS, ASSESSMENT_STATUSES } from "@/lib/risk/labels";
 import { RISK_BAND_LABELS, RISK_BANDS, RISK_METHOD_LABELS, RISK_METHODS } from "@/lib/risk/scoring";
+import { assessmentListQuerySchema } from "@/lib/validation/risk";
 import { toQueryString, useAssessments, type AssessmentListItem, type AssessmentListParams } from "../../api";
 import { formatDate } from "../../format";
 import { AssessmentStatusBadge, ScoreChip } from "../shared";
 
 const PAGE_SIZE = 20;
+/** Register state kept in the URL ("Active and archived" is `status=ALL`). */
+const urlSchema = assessmentListQuerySchema.omit({ pageSize: true, relatedTo: true });
 
 const SORTS = [
   { id: "updatedAt", name: "Recently updated" },
@@ -37,30 +40,16 @@ const SORTS = [
 /** Risk assessments register: search (reference, title, item or label id), filters, sorting, CSV. */
 export function AssessmentRegister() {
   const router = useRouter();
-  const params = useSearchParams();
   const { can } = useCurrentUser();
-  const [search, setSearch] = useState(params.get("q") ?? "");
-  const q = useDeferredValue(search.trim());
-  const [filters, setFilters] = useState<Omit<AssessmentListParams, "page" | "pageSize" | "q">>({
-    status: (params.get("status") as AssessmentListParams["status"]) ?? "ACTIVE",
-    band: (params.get("band") as AssessmentListParams["band"]) ?? undefined,
-    review: (params.get("review") as AssessmentListParams["review"]) ?? undefined,
-    mine: params.get("mine") === "true" ? "true" : undefined,
-    sort: "updatedAt",
-    dir: "desc",
-  });
-  const [page, setPage] = useState(1);
+  const [filters, set] = useUrlState(urlSchema);
+  const [search, setSearch] = useUrlSearchText();
   const lookups = useLookups();
   const structure = structureOptions(lookups.data);
-  const query: AssessmentListParams = { page, pageSize: PAGE_SIZE, q: q || undefined, ...filters };
+  const query: AssessmentListParams = { ...filters, pageSize: PAGE_SIZE };
   const list = useAssessments(query);
-  const set = (patch: Partial<typeof filters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-    setPage(1);
-  };
   const exportHref = `/api/risk/assessments/export?${toQueryString({ ...query, page: undefined, pageSize: undefined })}`;
   const moreActive = [filters.departmentId, filters.ownerId, filters.review, filters.mine, filters.sort !== "updatedAt" ? "x" : undefined].filter(Boolean).length;
-  const filtered = Boolean(q) || Object.entries(filters).some(([k, v]) => v && !(k === "status" && v === "ACTIVE") && k !== "sort" && k !== "dir");
+  const filtered = countActiveFilters(filters, urlSchema) > 0;
 
   return (
     <>
@@ -92,7 +81,7 @@ export function AssessmentRegister() {
 
       <Card className="mb-4 gap-2 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search reference, title or item" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search reference, title or item" />
           <FilterSelect
             value={filters.status === "ACTIVE" ? undefined : filters.status}
             onChange={(v) => set({ status: (v as AssessmentListParams["status"]) ?? "ACTIVE" })}
@@ -208,7 +197,7 @@ export function AssessmentRegister() {
             </Table>
           </div>
           <div className="border-t px-3">
-            <PaginationBar page={page} pageSize={PAGE_SIZE} total={list.data.total} onPageChange={setPage} />
+            <PaginationBar page={filters.page} pageSize={PAGE_SIZE} total={list.data.total} onPageChange={(page) => set({ page })} />
           </div>
         </Card>
       )}

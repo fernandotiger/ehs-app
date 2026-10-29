@@ -2,8 +2,7 @@
 
 import { AlarmClock, CalendarClock, ListChecks, Plus, Send, UserCheck } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { StatCard } from "@/components/common/stat-card";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
@@ -14,9 +13,10 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilterSelect, SearchBox } from "@/features/documents/components/filters";
+import { useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
 import { ACTION_PRIORITIES, ACTION_PRIORITY_LABELS, ACTION_STATUS_LABELS, ACTION_STATUSES } from "@/lib/actions";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { ActionListView } from "@/lib/validation/actions";
+import { ACTION_LIST_VIEWS, actionListQuerySchema, type ActionListView } from "@/lib/validation/actions";
 import { useActionList, useActionSummary, type ActionListItem, type ActionListParams } from "../api";
 import { formatDate } from "../format";
 import { ActionPriorityBadge, ActionStatusBadge } from "./action-badges";
@@ -29,36 +29,23 @@ const VIEWS: { key: ActionListView; label: string }[] = [
   { key: "created", label: "Created by me" },
 ];
 
-function isView(value: string | null): value is ActionListView {
-  return value === "mine" || value === "assigned" || value === "created" || value === "all";
-}
+const OWN_VIEWS: readonly ActionListView[] = VIEWS.map((v) => v.key);
+/** URL state (the `view` tab is read with `useUrlTab`); "Any status" is written as `status=ALL`. */
+const urlSchema = actionListQuerySchema.pick({ page: true, q: true, status: true, priority: true, overdue: true });
 
 /** My Actions: work assigned to me and actions I created for others (managers can widen to their area). */
 export function MyActions() {
   const router = useRouter();
-  const params = useSearchParams();
   const { can } = useCurrentUser();
   const seesAll = can(PERMISSIONS.ACTION_VIEW);
-  const initialView = params.get("view");
-  const [view, setView] = useState<ActionListView>(isView(initialView) && (initialView !== "all" || seesAll) ? initialView : "mine");
-  const [search, setSearch] = useState(params.get("q") ?? "");
-  const q = useDeferredValue(search.trim());
-  const [filters, setFilters] = useState<Pick<ActionListParams, "status" | "priority" | "overdue">>({
-    status: "ACTIVE",
-    overdue: params.get("overdue") === "true" ? "true" : undefined,
-  });
-  const [page, setPage] = useState(1);
+  // "Everyone's" needs action.view: a saved `view=all` falls back to "All mine" without rewriting the URL.
+  const tab = useUrlTab<ActionListView>("view", "mine", seesAll ? ACTION_LIST_VIEWS : OWN_VIEWS);
+  const view = tab.value;
+  const [filters, set] = useUrlState(urlSchema);
+  const { page, q } = filters;
+  const [search, setSearch] = useUrlSearchText();
   const summary = useActionSummary();
-  const list = useActionList({ page, pageSize: PAGE_SIZE, q: q || undefined, view, ...filters, sort: "dueDate", dir: "asc" });
-  const set = (patch: Partial<typeof filters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-    setPage(1);
-  };
-  const changeView = (next: string) => {
-    setView(next as ActionListView);
-    setPage(1);
-    router.replace(next === "mine" ? "/actions" : `/actions?view=${next}`, { scroll: false });
-  };
+  const list = useActionList({ ...filters, pageSize: PAGE_SIZE, view, sort: "dueDate", dir: "asc" });
   const s = summary.data;
 
   return (
@@ -83,7 +70,7 @@ export function MyActions() {
         <StatCard label="Created for others" value={s?.createdForOthers ?? "–"} hint="Still open" icon={Send} tone="info" />
       </div>
 
-      <Tabs value={view} onValueChange={changeView} className="mb-3">
+      <Tabs {...tab} className="mb-3">
         <TabsList className="h-auto flex-wrap">
           {VIEWS.map((v) => (
             <TabsTrigger key={v.key} value={v.key}>
@@ -95,7 +82,7 @@ export function MyActions() {
       </Tabs>
       <Card className="mb-4 gap-0 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search reference, title or description" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search reference, title or description" />
           <FilterSelect
             value={filters.status === "ALL" ? undefined : filters.status}
             onChange={(v) => set({ status: (v as ActionListParams["status"]) ?? "ALL" })}
@@ -181,7 +168,7 @@ export function MyActions() {
             </Table>
           </div>
           <div className="border-t px-3">
-            <PaginationBar page={page} pageSize={PAGE_SIZE} total={list.data.total} onPageChange={setPage} />
+            <PaginationBar page={page} pageSize={PAGE_SIZE} total={list.data.total} onPageChange={(p) => set({ page: p })} />
           </div>
         </Card>
       )}

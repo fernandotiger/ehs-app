@@ -78,6 +78,8 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   // Auth endpoints and sync must always hit the network.
   if (url.pathname.startsWith("/api/auth") || url.pathname.startsWith("/api/uploads") || url.pathname === "/sw.js") return;
+  // One favourite with what was typed on a create page – owner-only, never kept on the device.
+  if (/^\/api\/favourites\/[^/]+$/.test(url.pathname)) return;
 
   if (isStaticAsset(url)) {
     event.respondWith(cacheFirst(request, STATIC_CACHE));

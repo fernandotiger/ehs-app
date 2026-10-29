@@ -72,6 +72,7 @@ model User {
   uploadSessions  UploadSession[]
   attachments     Attachment[]
   comments        Comment[]
+  favourites      Favourite[]
 
   // Documents
   documentAudiences            DocumentAudience[]

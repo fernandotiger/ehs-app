@@ -1,7 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
 import { useBranding } from "@/components/providers/branding-provider";
 import { Separator } from "@/components/ui/separator";
+import { FavouriteStarButton } from "@/features/favourites/components/favourite-star-button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { BrandLogo } from "./brand-logo";
 import { NotificationBell } from "./notification-bell";
@@ -24,6 +26,10 @@ export function AppHeader() {
         <BrandLogo className="md:hidden" />
       )}
       <div className="ml-auto flex items-center gap-1">
+        {/* The star reads the query string (useSearchParams), so it sits in its own Suspense boundary. */}
+        <Suspense fallback={null}>
+          <FavouriteStarButton />
+        </Suspense>
         <SyncButton />
         <NotificationBell />
         <UserMenu />
