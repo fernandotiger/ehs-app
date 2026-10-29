@@ -25,7 +25,7 @@ and `../skills/ehs-functional-rebuild` (functional specs: `references/<module>.m
 
 Quality at handoff: `tsc` 0 errors, 515 vitest tests green (29 Oct, incl. `test/seed`), eslint clean, `next build` clean (no warnings).
 Migrations: `init`, `configuration`, `forms_jobs`, `incidents`, `risk`, `document_surveys`, `survey_optional_file`, `document_tags`,
-`anonymous_incident_reports`, `actions`, `law`, `simplified_law` (28–29 Oct, additive; local DB only – reach Neon with the next Vercel deploy). `actions` also
+`anonymous_incident_reports`, `actions`, `law`, `simplified_law` (28–29 Oct, additive; all applied to Neon by the Vercel deploy of `ecf751f`, checked 29 Oct). `actions` also
 holds two idempotent data statements: it switches the `actions` module on for every existing tenant and appends the new
 `action.*` keys to the system roles (by role key) – so a deploy turns the Actions section on for the Neon tenants too.
 `law` has no data statements (the `law` module key and `law.*` role keys existed from the start; Northstar already has it on).
@@ -34,7 +34,7 @@ consent) or install a content package in Configuration → Law content & setting
 `simplified_law` adds six `slaw_*` tables and, like `actions`, idempotent data statements: it switches the `simplified-law` module
 on for every tenant and appends `slaw.view` (administrator, manager, ehs-manager) and `slaw.assess` + `slaw.manage` (administrator,
 ehs-manager) to the system roles. After the deploy the Neon tenants see an empty register (categories and laws can be added in
-Simplified law → Configuration) until `db:seed:simplified-law` is run there with the owner's consent.
+Simplified law → Configuration) until `db:seed:simplified-law` is run there – done for Northstar on 29 Oct with the owner's consent.
 New dependency: `pdf-lib` 1.17.1 (Risk → Save as document).
 **Git:** first commit 27 Oct 2026 on `master`, pushed to `https://github.com/fernandotiger/ehs-app` (owner's personal repo).
 Ask before committing or pushing. `Port of Cork Incident Module Templates 19022021.xlsx` (client file) stays local – it is
@@ -44,7 +44,7 @@ in `.gitignore`; its content is transcribed in `prisma/seed/incident-types.ts`.
 identical to `.env` there, or existing audit/acknowledgement signatures stop verifying.
 
 ## Databases and running it
-- `.env` → the product owner's **Neon** test database `mvp1` (`DATABASE_DRIVER=neon`). Migrated through `document_surveys` (**`survey_optional_file`, `document_tags`, `anonymous_incident_reports`, `actions`, `law` and `simplified_law` not applied yet** – the next Vercel deploy applies them; ask the owner before applying by hand) and seeded
+- `.env` → the product owner's **Neon** test database `mvp1` (`DATABASE_DRIVER=neon`). Migrated through `simplified_law` (Vercel deploys apply new migrations; ask the owner before applying by hand) and seeded
   on 27 Oct 2026. `npm run dev` uses it (http://localhost:3000; `BETTER_AUTH_URL` must match the port).
 - `.env.localdb` → local `prisma dev` server `oleoq` (database `template1` on :51221, shadow :51222). Start with
   `npx prisma dev -n oleoq -d`; prefix commands with `bash scripts/localdb.sh` (Git Bash). Keep `DATABASE_POOL_MAX=1`.
@@ -138,7 +138,8 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
   installed the 2026.Q4 sample update and accepted it into Cork only (Dublin shows "update available").
   Simplified law demo data (real Irish / EU legislation: 3 categories, 7 sub-categories, 17 laws incl. the storyboard's PPWR
   example; demo answers and actions; `slaw.action` target on the overdue job): `bash scripts/localdb.sh npm run db:seed:simplified-law`
-  (local DB applied 29 Oct 2026; Neon not). Re-running only adds missing categories / laws and never overwrites company edits.
+  (local DB applied 29 Oct 2026; Neon applied 29 Oct 2026 with the owner's consent via `ALLOW_REMOTE_SEED=1 npm run db:seed:simplified-law`
+  – Northstar: 10 categories, 17 laws, 6 demo answers). Re-running only adds missing categories / laws and never overwrites company edits.
 - Browser-pane testing: the in-app browser pane can be hidden (viewport 0×0) – `read_page` then returns an empty page; set a size with
   `resize_window` first. Law stat-card grids need `grid-cols-1` on phones (long hints otherwise widen the page).
 - Risk "Save as document (PDF)": each click stores a new PDF upload (usable 24 h); unused ones stay in storage like abandoned
