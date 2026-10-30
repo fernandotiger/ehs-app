@@ -292,7 +292,7 @@ function RolesView({
             />
 
             {dirty && (
-              <div className="sticky bottom-20 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-3 shadow-lg md:bottom-4">
+              <div className="sticky bottom-20 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-3 shadow-lg md:bottom-4 assistant:mr-15">
                 <span className="text-sm font-medium">Unsaved changes to {role.name}</span>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={discard} disabled={update.isPending}>

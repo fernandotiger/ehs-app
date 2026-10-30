@@ -102,7 +102,7 @@ function EditForm({ doc, survey }: { doc: ManageDocumentDto; survey: boolean }) 
           }
         />
       </FormSection>
-      <div className="sticky bottom-20 z-10 flex items-center justify-end gap-3 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur md:bottom-4">
+      <div className="sticky bottom-20 z-10 flex items-center justify-end gap-3 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur md:bottom-4 assistant:mr-15">
         {form.formState.isDirty && <span className="mr-auto text-xs text-muted-foreground">Unsaved changes</span>}
         <Button type="button" variant="ghost" disabled={!form.formState.isDirty || update.isPending} onClick={() => form.reset(toFormValues(doc, settings))}>
           Discard

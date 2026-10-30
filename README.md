@@ -49,6 +49,7 @@ feed **My work**), pick-lists, numbering formats, branding, module settings, imp
 - In-app notifications, per-company append-only audit log, System settings, evidence/comments/linked records for any record.
 - **PWA / offline:** installable; previously viewed data stays available offline; comments and acknowledgements recorded offline are queued on the device and sent with the **Sync** button in the header.
 - Responsive layout: sidebar on desktop, bottom navigation on mobile.
+- **AI assistant** ([docs/modules/assistant.md](docs/modules/assistant.md)): a help chatbot (✦ button, bottom right) that answers "how do I … in OleoQ" questions from a per-company guide (Configuration → AI assistant), through OpenRouter's free models. Needs `OPENROUTER_API_KEY` on the server; chats are not saved.
 
 ---
 
@@ -107,6 +108,7 @@ Development only. Full list in [docs/modules/platform.md](docs/modules/platform.
 | `npm run db:deploy` | Apply migrations |
 | `npm run db:seed` | Seed demo data (idempotent) |
 | `npm run db:seed:incident-types` | Re-apply only the demo incident types + their forms to an existing database (local unless `ALLOW_REMOTE_SEED=1`) |
+| `npm run db:seed:assistant` | Give the demo companies their AI assistant settings (built-in guide) if they have none yet (local unless `ALLOW_REMOTE_SEED=1`) |
 | `npm run tenant:create -- …` | Provision a company with default roles, lists, settings and its first administrator |
 | `bash scripts/localdb.sh <cmd>` | Run any command against the local `prisma dev` database instead of `.env` |
 | `npm run icons` | Regenerate PWA icons |
@@ -125,7 +127,8 @@ To test the service worker locally, either run a production build (`npm run buil
 3. **Files:** create a Vercel Blob store (Storage → Blob) and connect it to the project. This adds `BLOB_READ_WRITE_TOKEN`. Set `STORAGE_DRIVER=vercel-blob`. Files are stored as **private** blobs and only served through authorised API routes. Browsers upload directly to Blob, so files larger than the 4.5 MB function body limit work.
 4. **Auth:** `BETTER_AUTH_SECRET` (long random string) and `BETTER_AUTH_URL` (e.g. `https://ehs.example.com`).
 5. **Jobs:** `CRON_SECRET` (random string). `vercel.json` schedules `/api/cron/reminders` (06:00 UTC, acknowledgement reminders and escalations) and `/api/cron/jobs` (09:00 UTC, the scheduled jobs configured per company). Vercel sends the secret automatically. On the Hobby plan crons run at most daily, so a job set for another time runs at the next daily call; on Pro you can call `/api/cron/jobs` every 15 minutes.
-6. Optional: `AUDIT_SIGNING_SECRET` (defaults to `BETTER_AUTH_SECRET`). **Never rotate it without keeping the old value**, or existing signatures can no longer be verified. Reusing a database you already used locally: copy `BETTER_AUTH_SECRET` (and `AUDIT_SIGNING_SECRET` if set) from that `.env`.
+6. Optional – AI assistant: `OPENROUTER_API_KEY` (Project → Settings → Environment Variables, mark it **Sensitive**, then redeploy). Without it the assistant shows "not set up yet" to administrators and stays hidden for everyone else.
+   Optional: `AUDIT_SIGNING_SECRET` (defaults to `BETTER_AUTH_SECRET`). **Never rotate it without keeping the old value**, or existing signatures can no longer be verified. Reusing a database you already used locally: copy `BETTER_AUTH_SECRET` (and `AUDIT_SIGNING_SECRET` if set) from that `.env`.
 7. Deploy. The `vercel-build` script runs `prisma generate`, `prisma migrate deploy` and `next build`.
 8. Seed once from your machine against the direct URL if you want demo data: `DATABASE_URL=<direct url> npm run db:seed`. Otherwise sign in with a user you create in the seed or database. Demo incident types only: `npm run db:seed:incident-types`.
    Files seeded or uploaded with `STORAGE_DRIVER=local` stay on that machine – documents that point to them cannot be opened on Vercel until they are re-uploaded.
@@ -145,7 +148,7 @@ No code changes are needed, only configuration:
 | Amazon RDS / Aurora PostgreSQL | `DATABASE_DRIVER=pg`, `DATABASE_URL=postgresql://…` (use RDS Proxy for serverless workloads) |
 | Amazon S3 | `STORAGE_DRIVER=s3`, `S3_BUCKET`, `S3_REGION`, plus credentials via IAM role or `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`. Keep *Block Public Access* on, and add a CORS rule that allows `PUT` from your app origin (browsers upload with presigned URLs). |
 | S3-compatible (MinIO, R2) | also set `S3_ENDPOINT` |
-| App server (ECS / App Runner / EC2) | `npm ci && npm run build && npm start` (run `npm run db:deploy` once per release); set the same `BETTER_AUTH_*`, `CRON_SECRET` variables |
+| App server (ECS / App Runner / EC2) | Docker image from the `Dockerfile` (`migrate` target once per release) – see [docs/deploy-aws.md](docs/deploy-aws.md) for variables, secrets and release order |
 | Scheduled work | EventBridge Scheduler → HTTP GET with header `Authorization: Bearer $CRON_SECRET`: `/api/cron/jobs` every 15 min, `/api/cron/reminders` daily |
 
 Every stored file records the driver it was written with, so older files stay readable while you migrate objects.

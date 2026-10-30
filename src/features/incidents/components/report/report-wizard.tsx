@@ -667,7 +667,7 @@ function Wizard({ types, incident, seed, departmentIds }: { types: ReportSetupTy
           </CardContent>
         </Card>
 
-        <div className="fixed inset-x-0 bottom-16 z-30 border-t bg-background/95 px-3 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
+        <div className="fixed inset-x-0 bottom-16 z-30 border-t bg-background/95 px-3 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 max-md:assistant:pr-18">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2">
             <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => goTo(step - 1)} disabled={step === 0 || Boolean(busy)}>
               <ArrowLeft /> <span className="hidden sm:inline">Back</span>

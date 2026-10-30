@@ -529,7 +529,7 @@ function Wizard({
           </CardContent>
         </Card>
 
-        <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-background/95 p-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0">
+        <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-background/95 p-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 max-md:assistant:pr-18">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Button type="button" variant="ghost" onClick={() => goTo(step - 1)} disabled={step === 0}>
               <ArrowLeft /> Back

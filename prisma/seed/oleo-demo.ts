@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../../src/generated/prisma/client";
 import { SYSTEM_ROLE_KEYS as R } from "../../src/lib/permissions";
 import { provisionTenant } from "../../src/server/tenancy/provisioning";
+import { applyDemoAssistant } from "./assistant";
 import { DEMO_PASSWORD, seedStructure, seedUsers, type TenantSeed } from "./common";
 import { seedDocuments } from "./documents";
 import { OLEO_DEMO_INCIDENTS, seedIncidents } from "./incidents";
@@ -72,5 +73,6 @@ export async function seedOleoDemo(prisma: PrismaClient): Promise<TenantSeed> {
   });
   const adminId = seed.users.get("admin@oleo-demo.example") ?? null;
   await seedIncidents(prisma, seed, OLEO_DEMO_INCIDENTS, adminId ? { id: adminId, name: "Morgan Kelly" } : null);
+  await applyDemoAssistant(prisma, seed.organizationId);
   return seed;
 }

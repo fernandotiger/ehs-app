@@ -1,0 +1,35 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// AI assistant (platform feature, the ✦ button bottom-right on every signed-in page): a help
+// chatbot that answers "how do I … in OleoQ" questions from the tenant's knowledge text, through
+// OpenRouter (server-side; the API key is the OPENROUTER_API_KEY env var, never stored here).
+// One row per tenant; a tenant without a row uses the built-in defaults
+// (src/lib/assistant/defaults.ts + src/server/modules/assistant/default-knowledge.ts).
+// Chat messages are NOT stored (docs/modules/assistant.md).
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AssistantConfig {
+  id                 String   @id @default(cuid())
+  organizationId     String   @unique
+  /// Off = the button is hidden for everyone in this company.
+  enabled            Boolean  @default(true)
+  /// Shown in the pop-up header, e.g. "OleoQ Assistant".
+  name               String   @db.VarChar(60)
+  welcomeMessage     String   @db.VarChar(600)
+  /// 0–4 starter questions shown under the welcome message.
+  suggestedQuestions String[]
+  /// OpenRouter model id, e.g. "openrouter/free" (Free Models Router) or "vendor/model:free".
+  model              String   @db.VarChar(120)
+  /// Tried once when the main model is busy, rate-limited or unavailable; null = no fallback.
+  fallbackModel      String?  @db.VarChar(120)
+  temperature        Float    @default(0.3)
+  maxTokens          Int      @default(800)
+  /// The "how this app works" guide the answers are based on (Markdown, ≤ 80,000 characters).
+  knowledgeText      String
+  /// Optimistic concurrency (Configuration → AI assistant sends the version it loaded).
+  version            Int      @default(1)
+  updatedById        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("assistant_configs")
+}

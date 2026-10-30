@@ -4,6 +4,7 @@ import { SYSTEM_ROLE_KEYS as R } from "../../src/lib/permissions";
 import { provisionTenant } from "../../src/server/tenancy/provisioning";
 import { DEMO_PASSWORD, seedStructure, seedUsers, type TenantSeed, type UserSpec } from "./common";
 import { applyDemoActions } from "./actions";
+import { applyDemoAssistant } from "./assistant";
 import { seedDocumentSurveys } from "./document-surveys";
 import { seedDocuments, type DocumentSpec } from "./documents";
 import { seedForms } from "./forms";
@@ -335,5 +336,7 @@ export async function seedNorthstar(prisma: PrismaClient): Promise<TenantSeed> {
   await applyDemoLaw(prisma, seed.organizationId);
   console.log("  • simplified law (real Irish / EU legislation, demo answers and actions)");
   await applyDemoSimplifiedLaw(prisma, seed.organizationId);
+  console.log("  • AI assistant settings (built-in guide, free model)");
+  await applyDemoAssistant(prisma, seed.organizationId);
   return seed;
 }

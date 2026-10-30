@@ -3,6 +3,8 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* While the AI assistant button (bottom right) is shown – AssistantLauncher sets data-assistant on <html> – bottom action bars leave room for it. */
+@custom-variant assistant (&:is([data-assistant] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -189,6 +191,32 @@
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* AI assistant: blinking caret after an answer that is still streaming in. */
+.assistant-caret > div > p:last-child::after,
+.assistant-caret > div > :is(ul, ol):last-child > li:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.55;
+  animation: assistant-caret 1s steps(2, start) infinite;
+}
+@keyframes assistant-caret {
+  to {
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-caret > div > p:last-child::after,
+  .assistant-caret > div > :is(ul, ol):last-child > li:last-child::after {
+    animation: none;
   }
 }
 

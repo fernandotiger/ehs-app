@@ -233,7 +233,7 @@ function SurveyCreateForm({ seed, known }: { seed: Snapshot | null; known: Known
           <AckSettingsFields control={control} unavailableReason={files.length ? undefined : "Add a file in step 2 to ask people to confirm they have read it."} />
         </FormSection>
 
-        <div className="sticky bottom-20 z-10 flex flex-col-reverse gap-2 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur sm:flex-row sm:justify-end md:bottom-4">
+        <div className="sticky bottom-20 z-10 flex flex-col-reverse gap-2 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur sm:flex-row sm:justify-end md:bottom-4 assistant:mr-15">
           <Button type="button" variant="outline" size="lg" disabled={busy} onClick={() => void submit("draft")}>
             {intent === "draft" ? <Spinner /> : <Save />} Save as draft
           </Button>

@@ -203,6 +203,7 @@ export const ROUTES: readonly RouteEntry[] = [
   { pattern: "/configuration/risk", title: "Risk matrix", icon: "Settings", module: "risk", permissions: [P.RISK_CONFIGURE, P.FORMS_PUBLISH], kind: "other" },
   { pattern: "/configuration/roles", title: "Roles", icon: "Settings", permissions: [P.ADMIN_ROLES], kind: "other" },
   { pattern: "/configuration/settings", title: "System settings", icon: "Settings", permissions: [P.ADMIN_SETTINGS], kind: "other" },
+  { pattern: "/configuration/assistant", title: "AI assistant", icon: "Settings", permissions: [P.ADMIN_SETTINGS], kind: "other" },
   { pattern: "/configuration/structure", title: "Company structure", icon: "Settings", permissions: [P.ADMIN_ORGANISATION], kind: "other" },
   { pattern: "/configuration/subscription", title: "Subscription", icon: "Settings", permissions: [P.CONFIG_SUBSCRIPTION], kind: "other" },
   { pattern: "/configuration/users", title: "Users", icon: "Settings", permissions: [P.ADMIN_USERS], kind: "other" },

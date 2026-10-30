@@ -7,6 +7,8 @@ import { CurrentUserProvider, type SessionUser } from "@/components/providers/cu
 import { warmOfflineRoutes } from "@/components/pwa/service-worker-registrar";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AssistantLauncher } from "@/features/assistant/components/assistant-launcher";
+import { AssistantProvider } from "@/features/assistant/components/assistant-provider";
 import type { BrandingDto } from "@/lib/branding";
 import { AppHeader } from "./app-header";
 import { AppSidebar } from "./app-sidebar";
@@ -38,16 +40,21 @@ export function AppShell({
     <CurrentUserProvider user={user}>
       <BrandingProvider branding={branding ?? { name: user.organizationName, colours: {}, logoUrl: null }}>
         <QueryProvider userId={user.id}>
-          <SidebarProvider defaultOpen={defaultOpen}>
-            <AppSidebar />
-            <SidebarInset className="min-w-0 bg-background">
-              <AppHeader />
-              <main className="flex-1 px-3 pb-24 pt-4 md:px-6 md:pb-10 md:pt-6">
-                <div className="mx-auto w-full max-w-7xl">{children}</div>
-              </main>
-            </SidebarInset>
-            <MobileBottomNav />
-          </SidebarProvider>
+          {/* The assistant's conversation lives here (memory only): it survives page changes, not a refresh or sign-out. */}
+          <AssistantProvider>
+            <SidebarProvider defaultOpen={defaultOpen}>
+              <AppSidebar />
+              <SidebarInset className="min-w-0 bg-background">
+                <AppHeader />
+                {/* Bottom padding keeps the end of every page clear of the assistant button (and the phone bottom bar). */}
+                <main className="flex-1 px-3 pb-32 pt-4 md:px-6 md:pb-20 md:pt-6">
+                  <div className="mx-auto w-full max-w-7xl">{children}</div>
+                </main>
+              </SidebarInset>
+              <MobileBottomNav />
+              <AssistantLauncher />
+            </SidebarProvider>
+          </AssistantProvider>
         </QueryProvider>
       </BrandingProvider>
     </CurrentUserProvider>

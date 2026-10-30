@@ -12,6 +12,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Timer,
   TriangleAlert,
   Users,
@@ -125,6 +126,7 @@ export const CONFIGURATION_GROUPS: HubGroup[] = [
     title: "Account",
     cards: [
       { key: "settings", title: "System settings", description: "Time zone, upload limits and acknowledgement defaults.", icon: Settings, permissions: [P.ADMIN_SETTINGS], href: "/configuration/settings" },
+      { key: "assistant", title: "AI assistant", description: "The help chatbot: the guide it answers from, its welcome message and AI model.", icon: Sparkles, permissions: [P.ADMIN_SETTINGS], href: "/configuration/assistant" },
       { key: "audit-log", title: "Audit log", description: "Signed history of every change.", icon: History, permissions: [P.ADMIN_AUDIT], href: "/configuration/audit-log" },
       { key: "subscription", title: "Subscription", description: "Your plan and enabled modules.", icon: CreditCard, permissions: [P.CONFIG_SUBSCRIPTION], href: "/configuration/subscription" },
     ],

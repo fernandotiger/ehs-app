@@ -22,9 +22,10 @@ and `../skills/ehs-functional-rebuild` (functional specs: `references/<module>.m
 | Law (profiles, "Laws that apply to us" + Check compliance, tasks, Law library, content updates install/accept, reports; links + Non Compliance incident drafts + corrective actions with Risk/Incident back-links; 28 Oct) | done | `docs/modules/law.md` |
 | Simplified law (the boss's storyboard version of Law, built next to Law so one can be kept: category → legislation → "applicable to us?" questions → requirements checklist with one action per gap and an "Actions to do" tracker; own Configuration submenu; real Irish/EU demo law; Home widget; 29 Oct) | done | `docs/modules/simplified-law.md` |
 | Favourites (sidebar item under My work; ☆ in the top bar on the 14 search + 5 create pages – no Configuration, no Law; tiles with the user's title, icon and colour; filters/tabs restored from the URL via `useUrlState`, typed values restored as a starting "seed"; website links; blocked tiles for lost access; 29 Oct) | done | `docs/modules/favourites.md` |
+| AI assistant (✦ button bottom right on every signed-in page – moved from the left at the owner's request, 30 Oct – → help chatbot answering "how do I … in OleoQ" from a per-company guide; OpenRouter free models via `fetch`, streamed; Configuration → AI assistant with guide editor + Try it box; chats not saved; 30 Oct) | done – **needs `OPENROUTER_API_KEY`** wherever it runs (live-tested 30 Oct with the owner's key from `.env` against the local DB: real answer) | `docs/modules/assistant.md` |
 | Audits, Inspections | **not started – deferred by the product owner** | see "Next steps" |
 
-Quality at handoff: `tsc` 0 errors, 658 vitest tests green (30 Oct, after Response forms; incl. `test/seed`), eslint clean, `next build` clean (no warnings).
+Quality at handoff: `tsc` 0 errors, 716 vitest tests green (30 Oct, after the AI assistant; incl. `test/seed`), eslint clean, `next build` clean (no warnings).
 Response forms (30 Oct) has no migration – wording, menu and layout only.
 Migrations: `init`, `configuration`, `forms_jobs`, `incidents`, `risk`, `document_surveys`, `survey_optional_file`, `document_tags`,
 `anonymous_incident_reports`, `actions`, `law`, `simplified_law` (28–29 Oct, additive; all applied to Neon by the Vercel deploy of `ecf751f`, checked 29 Oct). `actions` also
@@ -39,6 +40,11 @@ ehs-manager) to the system roles. After the deploy the Neon tenants see an empty
 Simplified law → Configuration) until `db:seed:simplified-law` is run there – done for Northstar on 29 Oct with the owner's consent.
 `favourites` (29 Oct, additive: one table + one enum, no data statements) is applied to the local DB only – it reaches Neon with
 the next Vercel deploy.
+`assistant` (30 Oct, additive: one table `assistant_configs`, no data statements) is applied to the local DB only – it reaches
+Neon with the next Vercel deploy; companies without a row use the built-in guide and defaults, so no Neon seed is needed
+(`db:seed:assistant` only writes the same defaults as a row). The AI assistant needs the server env var `OPENROUTER_API_KEY`
+(`.env` / `.env.localdb` locally, Vercel Environment Variables, AWS Secrets Manager → ECS task definition) – see
+`docs/modules/assistant.md` "Where to put the API key". No new npm dependency (OpenRouter is called with `fetch`).
 New dependency: `pdf-lib` 1.17.1 (Risk → Save as document).
 **Git:** first commit 27 Oct 2026 on `master`, pushed to `https://github.com/fernandotiger/ehs-app` (owner's personal repo).
 Ask before committing or pushing. `Port of Cork Incident Module Templates 19022021.xlsx` (client file) stays local – it is
@@ -55,6 +61,9 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
   Other port: `BETTER_AUTH_URL=http://localhost:3100 bash scripts/localdb.sh npx next dev -p 3100`.
 - Demo accounts (password `Password123!`): `docs/modules/platform.md` (admin/helen/emma/sam/liam/john @northstar.example,
   admin@oleo-demo.example). Northstar has all modules; Oleo Demo has documents + incidents + actions.
+- AWS (30 Oct 2026): `Dockerfile` (app = Next.js standalone, `--target migrate` = `prisma migrate deploy` + seed/tenant tools,
+  RDS CA bundle included), `.dockerignore`, public `/api/health`. GitLab pipeline / ECR / ECS / OpenTofu belong to the owner's
+  colleague. Variables, secrets (Secrets Manager + ECS task role for S3, no keys) and release order: `docs/deploy-aws.md`.
 - Storage is `local` in both env files: demo document files live in `./storage` on this PC. For Vercel set
   `STORAGE_DRIVER=vercel-blob` + `BLOB_READ_WRITE_TOKEN` first (then the demo documents need re-seeding there). AWS: README.
 
@@ -130,6 +139,11 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
     "own vs company totals"): count a response form's acknowledgement still to give / overdue as To complete / Overdue, like
     My Response Forms? (yes); banner numbers follow the table's search/filters? (no); numbers open a filtered list? (no –
     headings open the tabs); keep search/filters when switching Document Library tabs? (cleared).
+24. AI assistant (see assistant.md "Open questions"): free models (50 questions a day for the whole key until 10 credits are
+    bought, then 1,000) or one paid model? (free: `openrouter/free` + `google/gemma-4-31b-it:free`); who edits the guide?
+    (System settings holders); one guide per company? (yes); save conversations for review? (no); shared/company-wide rate
+    limit? (per person, per server: 6 a minute, 60 an hour); questions may go to free-model providers that log prompts? (yes,
+    with a "don't share personal details" note); confirm "Start a new conversation"? (no).
 
 ## Known issues and gotchas
 - Pages a user may not see render the not-found / access-denied UI with HTTP **200** (`(app)/loading.tsx` streams first); APIs return 404/403.
@@ -167,7 +181,9 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
 - Git Bash `sed -i` turns CRLF files into LF (the whole file shows as changed): edit CRLF files with the Edit tool or Node.
 
 ## Next steps
-1. Product owner to answer the open questions above.
+1. Product owner to answer the open questions above, and add `OPENROUTER_API_KEY` where the AI assistant should work, then
+   ask it a question (Configuration → AI assistant → Try it). If every answer fails with "privacy settings block the chosen
+   free model", allow free endpoints in openrouter.ai → Settings → Privacy.
 2. Owner and boss compare Law and Simplified law, then decide which stays (removal steps: `docs/modules/simplified-law.md`).
 3. Audit, Inspection – one phase each, brief modelled on `docs/briefs/05-risk.md` / `07-law.md`. Already prepared: permission keys
    (`src/lib/permissions.ts`), module keys (`src/lib/modules.ts`), Form Builder purposes (audits `STANDARD|SCORABLE|EXPRESS`,

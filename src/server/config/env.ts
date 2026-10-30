@@ -29,6 +29,12 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url().optional(),
   AUDIT_SIGNING_SECRET: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+
+  /** OpenRouter key for the AI assistant (optional – without it the assistant shows "not set up yet"). Server-only, never logged. */
+  OPENROUTER_API_KEY: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim() || undefined),
 });
 
 export type Env = z.infer<typeof envSchema>;

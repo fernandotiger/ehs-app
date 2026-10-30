@@ -1,0 +1,39 @@
+# Keep the Docker build context small and free of secrets.
+
+# Secrets and local data – never in an image
+.env
+.env.*
+*.pem
+storage
+*.xlsx
+
+# Rebuilt inside the image
+node_modules
+src/generated
+.next
+out
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# Not needed to build or run the app
+.git
+.gitignore
+.gitlab-ci.yml
+.claude
+.agents
+.windsurf
+.vercel
+docs
+test
+**/*.test.ts
+**/*.test.tsx
+vitest.config.ts
+README.md
+AGENTS.md
+CLAUDE.md
+skills-lock.json
+vercel.json
+Dockerfile
+.dockerignore
+npm-debug.log*

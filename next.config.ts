@@ -10,6 +10,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The Docker image (Dockerfile) builds with NEXT_OUTPUT=standalone: a self-contained server.js
+  // without the full node_modules. Vercel builds keep the default output.
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

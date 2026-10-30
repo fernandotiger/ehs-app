@@ -629,7 +629,7 @@ function JobEditor({
       </p>
 
       {canManage && dirty && (
-        <div className="sticky bottom-20 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-3 shadow-lg md:bottom-4">
+        <div className="sticky bottom-20 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-3 shadow-lg md:bottom-4 assistant:mr-15">
           <span className="text-sm font-medium">{job ? `Unsaved changes to ${job.name}` : "New job – not saved yet"}</span>
           <div className="flex gap-2">
             {job && (
