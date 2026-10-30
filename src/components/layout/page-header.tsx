@@ -22,15 +22,17 @@ export function PageBanner({
 }) {
   return (
     <section className={cn("mb-6", className)}>
-      <div className="relative overflow-hidden rounded-2xl bg-brand px-5 py-6 text-brand-foreground shadow-sm md:px-8 md:py-8">
+      <div className="@container/banner relative overflow-hidden rounded-2xl bg-brand px-5 py-6 text-brand-foreground shadow-sm md:px-8 md:py-8">
         <div className="bg-hex-pattern pointer-events-none absolute inset-0" aria-hidden />
         <div className="pointer-events-none absolute -right-10 -top-16 size-56 rounded-full bg-white/5" aria-hidden />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        {/* Title and actions sit side by side once the banner itself is wide enough (not the window: the sidebar takes
+            room on tablets); the actions keep one row while they fit in 55% (two buttons on the Document Library). */}
+        <div className="relative flex flex-col gap-4 @2xl/banner:flex-row @2xl/banner:items-end @2xl/banner:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold md:text-3xl">{title}</h1>
             {description && <p className="mt-1.5 max-w-2xl text-sm text-brand-foreground/75">{description}</p>}
           </div>
-          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          {actions && <div className="flex flex-wrap gap-2 @2xl/banner:max-w-[55%] @2xl/banner:shrink-0 @2xl/banner:justify-end">{actions}</div>}
         </div>
         {children && <div className="relative mt-5">{children}</div>}
       </div>

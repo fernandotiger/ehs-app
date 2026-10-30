@@ -25,10 +25,10 @@ export function MyAcknowledgementsWidget() {
   const overdue = query.data?.summary.overdue ?? 0;
   const surveys = query.data?.summary.surveysToAnswer ?? 0;
   const ackTodo = outstanding ? `${outstanding} to acknowledge${overdue ? ` · ${overdue} overdue` : ""}` : null;
-  // Inductions (document surveys) live in My Inductions, so the count links there.
+  // Response forms (document surveys) live in My Response Forms, so the count links there.
   const surveyTodo = surveys ? (
     <Link href="/documents/surveys" className="font-medium text-brand hover:underline">
-      {surveys} {surveys === 1 ? "induction" : "inductions"} to complete
+      {surveys} {surveys === 1 ? "response form" : "response forms"} to complete
     </Link>
   ) : null;
 

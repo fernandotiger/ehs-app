@@ -99,11 +99,21 @@ export function useUrlSearchText(key = "q", delay = 300): [string, (value: strin
 
 /**
  * Tab kept in the URL (`fallback` is left out). A saved tab that is no longer allowed falls back to `fallback`, or to
- * the first allowed tab. Spread into shadcn `<Tabs {...tab}>`.
+ * the first allowed tab. Spread into shadcn `<Tabs {...tab}>`. Switching tab removes `resetKeys` (default: `page`) –
+ * pass the filter keys too when each tab has its own filters.
  */
-export function useUrlTab<T extends string>(key: string, fallback: T, allowed?: readonly T[]): { value: T; onValueChange: (value: string) => void } {
+export function useUrlTab<T extends string>(
+  key: string,
+  fallback: T,
+  allowed?: readonly T[],
+  options?: { resetKeys?: readonly string[] },
+): { value: T; onValueChange: (value: string) => void } {
   const raw = useSearchParams().get(key);
   const value = resolveUrlTab(raw, fallback, allowed);
-  const onValueChange = useCallback((next: string) => patchUrlParams({ [key]: next === fallback ? null : next }, DEFAULT_RESET_KEYS), [key, fallback]);
+  const resetKeys = (options?.resetKeys ?? DEFAULT_RESET_KEYS).join(",");
+  const onValueChange = useCallback(
+    (next: string) => patchUrlParams({ [key]: next === fallback ? null : next }, resetKeys ? resetKeys.split(",") : []),
+    [key, fallback, resetKeys],
+  );
   return { value, onValueChange };
 }

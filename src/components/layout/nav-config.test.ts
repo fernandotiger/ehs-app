@@ -17,18 +17,23 @@ const documentsItems = (permissions: (typeof PERMISSIONS)[keyof typeof PERMISSIO
   visibleSections({ permissions, enabledModules: ["documents"] }).find((s) => s.key === "documents")?.items ?? [];
 
 describe("Documents menu", () => {
-  it("shows My Inductions to everyone, the Induction Library to managers and reporters, Create induction to managers", () => {
-    expect(documentsItems([PERMISSIONS.DOCUMENTS_MANAGE]).map((i) => i.title)).toEqual(["My Documents", "Document Library", "My Inductions", "Induction Library", "Create induction"]);
-    expect(documentsItems([PERMISSIONS.DOCUMENTS_ACK_REPORTS]).map((i) => i.title)).toEqual(["My Documents", "Document Library", "My Inductions", "Induction Library"]);
-    expect(documentsItems([]).map((i) => i.title)).toEqual(["My Documents", "My Inductions"]);
+  it("shows only My Documents, My Response Forms and (for managers and reporters) Document Library", () => {
+    expect(documentsItems([PERMISSIONS.DOCUMENTS_MANAGE]).map((i) => i.title)).toEqual(["My Documents", "My Response Forms", "Document Library"]);
+    expect(documentsItems([PERMISSIONS.DOCUMENTS_ACK_REPORTS]).map((i) => i.title)).toEqual(["My Documents", "My Response Forms", "Document Library"]);
+    expect(documentsItems([]).map((i) => i.title)).toEqual(["My Documents", "My Response Forms"]);
   });
 
-  it("highlights the most specific induction (survey route) entry", () => {
+  it("highlights Document Library on a response form's page and on Create response form", () => {
     const items = documentsItems([PERMISSIONS.DOCUMENTS_MANAGE]);
+    expect(findActiveHref("/documents", items)).toBe("/documents");
+    expect(findActiveHref("/documents/abc", items)).toBe("/documents");
     expect(findActiveHref("/documents/surveys", items)).toBe("/documents/surveys");
-    expect(findActiveHref("/documents/surveys/library", items)).toBe("/documents/surveys/library");
-    expect(findActiveHref("/documents/surveys/new", items)).toBe("/documents/surveys/new");
+    expect(findActiveHref("/documents/surveys/library", items)).toBe("/documents/manage");
+    expect(findActiveHref("/documents/surveys/library/abc", items)).toBe("/documents/manage");
+    expect(findActiveHref("/documents/surveys/new", items)).toBe("/documents/manage");
     expect(findActiveHref("/documents/manage/abc", items)).toBe("/documents/manage");
+    // Without the library item a create link can't highlight anything but My Response Forms.
+    expect(findActiveHref("/documents/surveys/new", documentsItems([]))).toBe("/documents/surveys");
   });
 });
 

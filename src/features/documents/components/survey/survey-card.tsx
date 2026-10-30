@@ -62,7 +62,7 @@ function AnswerSheet({
     try {
       const outcome = await answer.mutateAsync({ surveyId: survey.id, versionId: doc.currentVersion?.id ?? null, anonymous, answers: answersPayload(survey.questions, values) });
       if (outcome.queued) toast.info("You're offline – your answers will be sent when you sync.");
-      else if (!outcome.result.created) toast.info("You had already completed this induction – your first answers are kept.");
+      else if (!outcome.result.created) toast.info("You had already completed this response form – your first answers are kept.");
       else toast.success(anonymous ? "Thank you – your answers have been sent anonymously." : "Thank you – your answers have been sent.");
       reset();
       onOpenChange(false);
@@ -164,8 +164,8 @@ function AnswerSheet({
 }
 
 /**
- * Reader induction card (right column under the acknowledgement panel): status, size, and a big
- * "Complete the induction" button that stays disabled until the document has been opened.
+ * Reader response form card (right column under the acknowledgement panel): status, size, and a big
+ * "Complete the response form" button that stays disabled until the document has been opened.
  */
 export function SurveyCard({ doc, openedLocally }: { doc: DocumentViewerDto; openedLocally: boolean }) {
   const query = useMySurvey(doc.id);
@@ -179,7 +179,7 @@ export function SurveyCard({ doc, openedLocally }: { doc: DocumentViewerDto; ope
   const header = (
     <CardHeader>
       <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
-        <ClipboardList className="size-4" /> Employee Induction
+        <ClipboardList className="size-4" /> Response form
       </p>
       <CardTitle className="leading-snug">{survey.title}</CardTitle>
     </CardHeader>
@@ -192,7 +192,7 @@ export function SurveyCard({ doc, openedLocally }: { doc: DocumentViewerDto; ope
         <CardContent className="space-y-2 text-sm">
           <p className="flex items-start gap-2 rounded-lg bg-success/10 p-3 font-medium text-success">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-            Thanks – you completed this induction on {formatDate(survey.answered.answeredAt)}
+            Thanks – you completed this response form on {formatDate(survey.answered.answeredAt)}
             {survey.answered.anonymous ? " (anonymously)" : ""}.
           </p>
           {survey.answered.anonymous && (
@@ -209,7 +209,7 @@ export function SurveyCard({ doc, openedLocally }: { doc: DocumentViewerDto; ope
     return (
       <Alert className="border-info/40 bg-info/10">
         <CloudOff />
-        <AlertTitle>Induction answers pending sync</AlertTitle>
+        <AlertTitle>Response form answers pending sync</AlertTitle>
         <AlertDescription>Your answers are saved on this device. They will be sent when you&apos;re back online and press Sync.</AlertDescription>
       </Alert>
     );
@@ -218,10 +218,10 @@ export function SurveyCard({ doc, openedLocally }: { doc: DocumentViewerDto; ope
   if (survey.status !== "ACTIVE" || doc.status !== "PUBLISHED" || !survey.assigned) {
     const message =
       survey.status !== "ACTIVE"
-        ? "This induction is closed."
+        ? "This response form is closed."
         : doc.status !== "PUBLISHED"
-          ? "The induction goes live when it is published."
-          : "This induction is for the people it is assigned to.";
+          ? "The response form goes live when it is published."
+          : "This response form is for the people it is assigned to.";
     return (
       <Card>
         {header}
@@ -248,9 +248,9 @@ export function SurveyCard({ doc, openedLocally }: { doc: DocumentViewerDto; ope
             {questionsLabel(survey.questions.length)} · {minutesLabel(estimatedMinutes(survey.questions))}
           </p>
         </div>
-        {!opened && <p className="text-xs text-muted-foreground">Open the file first – you can complete the induction once you have opened it.</p>}
+        {!opened && <p className="text-xs text-muted-foreground">Open the file first – you can complete the response form once you have opened it.</p>}
         <Button size="lg" className="h-11 w-full" disabled={!opened} onClick={() => setOpen(true)}>
-          <ClipboardList /> Complete the induction
+          <ClipboardList /> Complete the response form
         </Button>
         <AnswerSheet doc={doc} survey={survey} open={open} onOpenChange={setOpen} />
       </CardContent>

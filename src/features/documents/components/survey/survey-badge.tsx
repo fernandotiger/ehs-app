@@ -4,8 +4,8 @@ import type { MySurveySummaryDto } from "@/server/modules/documents/survey.dto";
 import { MY_SURVEY_STATUS_META } from "../../survey-format";
 
 /**
- * Reader-facing survey pill for document lists: "Induction to complete" (mandatory, not answered yet),
- * "Induction" (optional, not answered yet), nothing once answered, closed or pending sync.
+ * Reader-facing survey pill for document lists: "Response form to complete" (mandatory, not answered yet),
+ * "Response form" (optional, not answered yet), nothing once answered, closed or pending sync.
  */
 export function SurveyBadge({ survey, pendingSync = false, className }: { survey: MySurveySummaryDto | null | undefined; pendingSync?: boolean; className?: string }) {
   if (!survey || pendingSync) return null;

@@ -142,7 +142,7 @@ describe("lock rules", () => {
   });
 
   it("locks the questions once the first answer arrives", () => {
-    expect(surveyEditProblem({ ...base, questionsChanged: true, responseCount: 1 })).toMatch(/Replace induction/);
+    expect(surveyEditProblem({ ...base, questionsChanged: true, responseCount: 1 })).toMatch(/Replace response form/);
     expect(surveyEditProblem({ ...base, responseCount: 5 })).toBeNull();
   });
 
@@ -181,9 +181,9 @@ describe("can-answer guard", () => {
   });
 
   it("explains every block in plain words", () => {
-    expect(answerBlockReason({ ...ok, opened: false })).toBe("Please open the file before completing the induction.");
+    expect(answerBlockReason({ ...ok, opened: false })).toBe("Please open the file before completing the response form.");
     expect(answerBlockReason({ ...ok, documentStatus: "DRAFT" })).toMatch(/not published/);
-    expect(answerBlockReason({ ...ok, surveyStatus: "CLOSED" })).toBe("This induction is closed.");
+    expect(answerBlockReason({ ...ok, surveyStatus: "CLOSED" })).toBe("This response form is closed.");
     expect(answerBlockReason({ ...ok, surveyStatus: "REPLACED" })).toMatch(/replaced/);
     expect(answerBlockReason({ ...ok, assigned: false })).toMatch(/assigned/);
     expect(answerBlockReason({ ...ok, anonymousRequested: true, allowAnonymous: false })).toMatch(/anonymous/);

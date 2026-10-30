@@ -31,7 +31,7 @@ export const documentSyncHandlers: SyncHandlerMap = {
   },
   "document.survey_answer": async (payload, ctx) => {
     const parsed = offlineSurveyAnswerPayloadSchema.safeParse(payload);
-    if (!parsed.success) throw new ValidationError("Invalid induction answer payload", parsed.error.issues);
+    if (!parsed.success) throw new ValidationError("Invalid response form answer payload", parsed.error.issues);
     const { documentId, surveyId, versionId, anonymous, answers } = parsed.data;
     return surveyService.answer(documentId, { surveyId, versionId, anonymous, answers }, ctx.user, ctx.meta, { source: "OFFLINE_SYNC" });
   },

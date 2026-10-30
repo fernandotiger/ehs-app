@@ -27,7 +27,8 @@ Brief: `docs/briefs/09-favourites.md` (scope, design, phases). Read with `docs/P
 
 **Offered (19):**
 - **14 search pages:**
-  - `/documents`, `/documents/manage`, `/documents/surveys`, `/documents/surveys/library`
+  - `/documents`, `/documents/manage` (tabs Documents / Response forms), `/documents/surveys`, `/documents/surveys/library`
+    (since 30 Oct a redirect to `/documents/manage?tab=forms`, kept as a search page so favourites saved before still open)
   - `/incidents/register`, `/incidents/actions`, `/incidents/reports`
   - `/actions`
   - `/risk/assessments`, `/risk/tasks`, `/risk/strategy`, `/risk/reports`
@@ -111,7 +112,7 @@ Tests make sure no Configuration or Law route and no `[id]` route is ever offere
 | Area | Components | Tab key |
 | --- | --- | --- |
 | Incidents | incident register, incident action register, incident reports | `view`, `view`, `tab` |
-| Documents | My Documents, Document Library, My Inductions, Induction Library | `filter` on the two "My" pages |
+| Documents | My Documents, Document Library (+ its Response forms tab), My Response Forms | `filter` on the two "My" pages, `tab` (`forms`) on the Document Library |
 | Actions | My Actions | `view` |
 | Risk | assessment register, task register, strategy, reports | `tab` on strategy, `report` on reports |
 | Simplified law | legislation list, actions page | `view` on the actions page |

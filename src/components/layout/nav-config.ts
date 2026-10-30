@@ -1,4 +1,4 @@
-import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, Library, ListChecks, ListTodo, MapPinned, Scale, Settings, ShieldAlert, ShieldCheck, SlidersHorizontal, SquareCheckBig, SquarePen, SquarePlus, Star, Target, TriangleAlert, type LucideIcon } from "lucide-react";
+import { BarChart3, BookOpenCheck, ClipboardCheck, ClipboardList, FilePlus2, FileStack, FileText, Gauge, Inbox, LayoutDashboard, Library, ListChecks, ListTodo, MapPinned, Scale, Settings, ShieldAlert, ShieldCheck, SlidersHorizontal, SquareCheckBig, SquarePlus, Star, Target, TriangleAlert, type LucideIcon } from "lucide-react";
 import { CONFIGURATION_PERMISSIONS } from "@/features/configuration/hub-cards";
 import type { ModuleKey } from "@/lib/modules";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -9,6 +9,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Visible when the user has ANY of these permissions (omit = everyone). */
   permissions?: readonly Permission[];
+  /** Other route prefixes that highlight this item (pages reached from it that live under another item's path). */
+  activeFor?: readonly string[];
 }
 
 export interface NavSection {
@@ -44,13 +46,18 @@ export const NAV_SECTIONS: NavSection[] = [
     icon: FileText,
     module: "documents",
     items: [
+      // Document surveys are shown to people as "Response forms" (owner's decision, 30 Oct 2026 – "Employee Induction"
+      // from 28 Oct; routes keep "surveys"). Only three items: the response form library is a tab of the Document Library
+      // and both create buttons sit in its banner, so a response form's page and Create response form highlight it.
       { title: "My Documents", href: "/documents", icon: BookOpenCheck },
-      { title: "Document Library", href: "/documents/manage", icon: FileStack, permissions: [PERMISSIONS.DOCUMENTS_MANAGE, PERMISSIONS.DOCUMENTS_ACK_REPORTS] },
-      // Document surveys are shown to people as "Employee Induction" (owner's decision, 28 Oct 2026; routes keep "surveys"):
-      // My Inductions (to complete) · Induction Library (manage) · Create induction.
-      { title: "My Inductions", href: "/documents/surveys", icon: ClipboardList },
-      { title: "Induction Library", href: "/documents/surveys/library", icon: ClipboardCheck, permissions: [PERMISSIONS.DOCUMENTS_MANAGE, PERMISSIONS.DOCUMENTS_ACK_REPORTS] },
-      { title: "Create induction", href: "/documents/surveys/new", icon: SquarePen, permissions: [PERMISSIONS.DOCUMENTS_MANAGE] },
+      { title: "My Response Forms", href: "/documents/surveys", icon: ClipboardList },
+      {
+        title: "Document Library",
+        href: "/documents/manage",
+        icon: FileStack,
+        permissions: [PERMISSIONS.DOCUMENTS_MANAGE, PERMISSIONS.DOCUMENTS_ACK_REPORTS],
+        activeFor: ["/documents/surveys/library", "/documents/surveys/new"],
+      },
     ],
   },
   {
@@ -145,15 +152,19 @@ export function visibleSections(user: NavUser): NavSection[] {
 }
 
 /**
- * The active item is the one whose href is the longest prefix of the current path,
- * so "/documents/abc" highlights My Documents while "/documents/manage/x" highlights
- * Document Library.
+ * The active item is the one whose href (or `activeFor` prefix) is the longest prefix of the
+ * current path, so "/documents/abc" highlights My Documents while "/documents/manage/x" and
+ * "/documents/surveys/library/x" highlight Document Library.
  */
 export function findActiveHref(pathname: string, items: NavItem[]): string | null {
   let best: string | null = null;
+  let bestLength = 0;
   for (const item of items) {
-    if (pathname === item.href || pathname.startsWith(item.href + "/")) {
-      if (!best || item.href.length > best.length) best = item.href;
+    for (const prefix of [item.href, ...(item.activeFor ?? [])]) {
+      if ((pathname === prefix || pathname.startsWith(prefix + "/")) && prefix.length > bestLength) {
+        best = item.href;
+        bestLength = prefix.length;
+      }
     }
   }
   return best;

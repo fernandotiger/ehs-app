@@ -135,6 +135,9 @@ export interface ComplianceStats {
   ackDueDays: number;
 }
 
+/** Document Library banner numbers (rules in library-summary-rules.ts). */
+export type { LibrarySummary as LibrarySummaryDto } from "./library-summary-rules";
+
 export interface LibraryItem {
   id: string;
   title: string;

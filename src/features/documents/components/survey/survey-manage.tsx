@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api-client";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useManageDocument } from "../../api";
 import { DOCUMENT_STATUS_META } from "../../format";
+import { RESPONSE_FORMS_LIBRARY_HREF } from "../../survey-format";
 import { AcknowledgementsTab } from "../manage/acknowledgements-tab";
 import { DocumentActions } from "../manage/document-manage";
 import { HistoryTab } from "../manage/history-tab";
@@ -20,7 +21,7 @@ import { SurveyIndicator } from "./survey-indicator";
 import { SurveyTab } from "./survey-tab";
 
 /**
- * Survey management page (Survey Library → a survey): Survey (results, who has answered, edit
+ * Survey management page (Document Library → Response forms → a survey): Survey (results, who has answered, edit
  * questions, previous surveys) · Settings (who should answer, acknowledgement) · File ·
  * Acknowledgements (when required) · History. The survey's document details are never shown –
  * its title and introduction are edited with the questions.
@@ -35,7 +36,7 @@ export function SurveyManage({ id }: { id: string }) {
   if (query.isPending) return <LoadingRows rows={6} className="[&>*:first-child]:h-20 [&>*]:h-24" />;
   if (query.isError) {
     if (query.error instanceof ApiError && query.error.status === 404) {
-      return <EmptyState icon={FileSearch} title="Induction not found" className="mt-6" />;
+      return <EmptyState icon={FileSearch} title="Response form not found" className="mt-6" />;
     }
     return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
   }
@@ -47,8 +48,8 @@ export function SurveyManage({ id }: { id: string }) {
     <>
       <PageHeader
         title={doc.title}
-        backHref="/documents/surveys/library"
-        backLabel="Induction Library"
+        backHref={RESPONSE_FORMS_LIBRARY_HREF}
+        backLabel="Document Library"
         meta={
           <>
             <StatusBadge tone={status.tone} dot>
@@ -66,7 +67,7 @@ export function SurveyManage({ id }: { id: string }) {
         <div className="-mx-3 overflow-x-auto overflow-y-hidden px-3 md:mx-0 md:px-0">
           <TabsList className="h-9">
             <TabsTrigger value="survey" className="px-3">
-              Induction
+              Response form
               <span className="ml-1 rounded-full bg-brand-soft px-1.5 text-[0.7rem] font-semibold text-brand tabular-nums" title="Completed">
                 {doc.survey?.participantCount ?? 0}
               </span>

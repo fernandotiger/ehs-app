@@ -38,8 +38,8 @@ export const SETTINGS = {
     merge: "shallow",
   }),
   documentSurvey: define({
-    label: "Employee inductions",
-    description: "Anonymity threshold and the default \"complete within\" days for employee inductions (document surveys).",
+    label: "Response forms",
+    description: "Anonymity threshold and the default \"complete within\" days for response forms (document surveys).",
     schema: documentSurveySettingsSchema,
     defaults: DEFAULT_DOCUMENT_SURVEY_SETTINGS,
     permission: PERMISSIONS.ADMIN_SETTINGS,

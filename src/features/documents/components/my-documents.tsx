@@ -6,15 +6,19 @@ import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
 import { PageBanner } from "@/components/layout/page-header";
+import { useCurrentUser } from "@/components/providers/current-user-provider";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
+import { PERMISSIONS } from "@/lib/permissions";
 import { MY_DOCUMENT_FILTERS, myDocumentsQuerySchema, type MyDocumentFilter } from "@/lib/validation/documents";
 import { cn } from "@/lib/utils";
 import { usePendingAcknowledgements, useMyDocuments, type MyDocumentItem } from "../api";
 import { usePendingSurveyAnswers } from "../survey-api";
 import { formatDate, relativeDue } from "../format";
 import { AckStatusBadge } from "./ack-status-badge";
+import { BannerStat } from "./banner-stats";
+import { UploadDocumentButton } from "./create-buttons";
 import { FileTypeIcon } from "./file-type-icon";
 import { CategoryFilter, SearchBox, TagFilter } from "./filters";
 import { SurveyBadge } from "./survey/survey-badge";
@@ -23,18 +27,6 @@ import { TagChips } from "./tag-chips";
 const PAGE_SIZE = 20;
 /** URL state (the `filter` tab is read with `useUrlTab`). */
 const urlSchema = myDocumentsQuerySchema.omit({ pageSize: true, filter: true });
-
-export function BannerStat({ label, value, icon: Icon, highlight }: { label: string; value: number | string; icon: typeof FileStack; highlight?: boolean }) {
-  return (
-    <div className={cn("flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur-sm", highlight && "bg-white/20")}>
-      <Icon className="hidden size-5 shrink-0 text-white/80 sm:block" />
-      <div className="min-w-0">
-        <p className="font-heading text-xl font-semibold leading-none tabular-nums">{value}</p>
-        <p className="mt-1 text-[0.7rem] leading-tight text-white/75 sm:text-xs">{label}</p>
-      </div>
-    </div>
-  );
-}
 
 function DocumentRow({ doc, pending, surveyPending }: { doc: MyDocumentItem; pending: boolean; surveyPending: boolean }) {
   const due = doc.ackStatus === "outstanding" || doc.ackStatus === "overdue" ? relativeDue(doc.dueAt) : null;
@@ -70,8 +62,13 @@ function DocumentRow({ doc, pending, surveyPending }: { doc: MyDocumentItem; pen
   );
 }
 
-/** My Documents – the simple employee view of documents assigned to them. */
+/**
+ * My Documents – the simple employee view of documents assigned to them (documents only: response forms are counted in
+ * the Document Library banner and listed in My Response Forms – owner's correction, 30 Oct 2026). Each number opens its
+ * tab; document managers get Upload document (only that one – Create response form is on the library and My Response Forms).
+ */
 export function MyDocuments() {
+  const { can } = useCurrentUser();
   const tab = useUrlTab<MyDocumentFilter>("filter", "all", MY_DOCUMENT_FILTERS);
   const filter = tab.value;
   const [{ page, q, categoryId, tagId }, set] = useUrlState(urlSchema);
@@ -84,11 +81,15 @@ export function MyDocuments() {
 
   return (
     <>
-      <PageBanner title="My Documents" description="Policies and procedures assigned to you. Open each one and confirm you have read it – inductions are under My Inductions.">
+      <PageBanner
+        title="My Documents"
+        description="Policies and procedures assigned to you. Open each one and confirm you have read it – response forms are under My Response Forms."
+        actions={can(PERMISSIONS.DOCUMENTS_MANAGE) ? <UploadDocumentButton /> : undefined}
+      >
         <div className="grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
-          <BannerStat label="To do" value={summary?.actionRequired ?? "–"} icon={ClipboardCheck} highlight={Boolean(summary?.actionRequired)} />
-          <BannerStat label="Overdue" value={summary?.actionOverdue ?? "–"} icon={AlertTriangle} />
-          <BannerStat label="Documents" value={summary?.total ?? "–"} icon={FileStack} />
+          <BannerStat label="To do" value={summary?.actionRequired ?? "–"} icon={ClipboardCheck} highlight={Boolean(summary?.actionRequired)} href="/documents?filter=action" />
+          <BannerStat label="Overdue" value={summary?.actionOverdue ?? "–"} icon={AlertTriangle} href="/documents?filter=action" />
+          <BannerStat label="Documents" value={summary?.total ?? "–"} icon={FileStack} href="/documents" />
         </div>
       </PageBanner>
 

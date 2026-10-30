@@ -91,7 +91,7 @@ function ChoiceBars({ question }: { question: SurveyQuestionResult }) {
   );
 }
 
-/** Summary of an induction's answers for its creator (current or a previous one). */
+/** Summary of a response form's answers for its creator (current or a previous one). */
 export function SurveyResultsView({ documentId, surveyId }: { documentId: string; surveyId?: string }) {
   const query = useSurveyResults(documentId, surveyId);
 

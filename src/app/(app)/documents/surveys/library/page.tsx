@@ -1,18 +1,10 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { AccessDenied } from "@/components/common/access-denied";
-import { LoadingRows } from "@/components/common/states";
-import { SurveyLibrary } from "@/features/documents/components/survey/survey-library";
-import { guardModulePage } from "@/server/auth/page-guard";
-import { DOCUMENT_PERMISSIONS } from "@/server/modules/documents/document-permissions";
+import { redirect } from "next/navigation";
+import { responseFormsLibraryHref } from "@/features/documents/survey-format";
 
-export const metadata: Metadata = { title: "Employee Induction Library" };
-
-export default async function SurveyLibraryPage() {
-  if (!(await guardModulePage("documents", ...DOCUMENT_PERMISSIONS.LIBRARY))) return <AccessDenied />;
-  return (
-    <Suspense fallback={<LoadingRows rows={6} />}>
-      <SurveyLibrary />
-    </Suspense>
-  );
+/**
+ * The Survey Library (shown as "Induction Library" from 28 Oct 2026) became the Document Library's Response forms tab
+ * on 30 Oct 2026. Old links and favourites land there with their filters; the Document Library checks access itself.
+ */
+export default async function SurveyLibraryPage(props: PageProps<"/documents/surveys/library">) {
+  redirect(responseFormsLibraryHref(await props.searchParams));
 }

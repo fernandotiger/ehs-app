@@ -29,13 +29,13 @@ const FIELD_LABELS: Record<string, string> = {
   changeNote: "Change note",
   fileName: "File",
   requiresReacknowledgement: "Re-acknowledgement required",
-  surveyTitle: "Induction title",
-  surveyIntro: "Induction introduction",
+  surveyTitle: "Response form title",
+  surveyIntro: "Response form introduction",
   surveyMandatory: "Everyone must complete it",
   surveyDueDays: "Complete within (days)",
   surveyAnonymous: "Anonymous answers allowed",
-  surveyQuestions: "Induction questions",
-  surveyStatus: "Induction status",
+  surveyQuestions: "Response form questions",
+  surveyStatus: "Response form status",
 };
 
 function isFromTo(value: unknown): value is { from: unknown; to: unknown } {

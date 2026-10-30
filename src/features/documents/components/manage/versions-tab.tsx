@@ -73,7 +73,7 @@ export function VersionsTab({ doc, survey = false }: { doc: ManageDocumentDto; s
         <EmptyState
           icon={History}
           title={survey ? "No file" : "No versions yet"}
-          description={survey ? "People complete the induction straight away. Add a file if they should read something first." : undefined}
+          description={survey ? "People complete the response form straight away. Add a file if they should read something first." : undefined}
           className="m-4"
         />
       ) : (

@@ -54,14 +54,14 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   DOCUMENT_ACKNOWLEDGED: "Acknowledged",
   DOCUMENT_FILE_ACCESSED: "Opened file",
   DOCUMENT_ACKNOWLEDGEMENTS_EXPORTED: "Acknowledgements exported",
-  DOCUMENT_SURVEY_CREATED: "Induction added",
-  DOCUMENT_SURVEY_UPDATED: "Induction changed",
-  DOCUMENT_SURVEY_CLOSED: "Induction closed",
-  DOCUMENT_SURVEY_REOPENED: "Induction reopened",
-  DOCUMENT_SURVEY_REPLACED: "Induction replaced",
-  DOCUMENT_SURVEY_ANSWERED: "Completed the induction",
-  DOCUMENT_SURVEY_REMINDED: "Induction reminder sent",
-  DOCUMENT_SURVEY_EXPORTED: "Induction answers exported",
+  DOCUMENT_SURVEY_CREATED: "Response form added",
+  DOCUMENT_SURVEY_UPDATED: "Response form changed",
+  DOCUMENT_SURVEY_CLOSED: "Response form closed",
+  DOCUMENT_SURVEY_REOPENED: "Response form reopened",
+  DOCUMENT_SURVEY_REPLACED: "Response form replaced",
+  DOCUMENT_SURVEY_ANSWERED: "Completed the response form",
+  DOCUMENT_SURVEY_REMINDED: "Response form reminder sent",
+  DOCUMENT_SURVEY_EXPORTED: "Response form answers exported",
 };
 
 export function isInlinePreviewable(mimeType: string): "pdf" | "image" | "text" | null {

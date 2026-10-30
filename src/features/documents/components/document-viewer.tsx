@@ -68,7 +68,7 @@ export function DocumentViewer({ id }: { id: string }) {
       <PageHeader
         title={doc.title}
         backHref={doc.isSurvey ? "/documents/surveys" : "/documents"}
-        backLabel={doc.isSurvey ? "My Inductions" : "My Documents"}
+        backLabel={doc.isSurvey ? "My Response Forms" : "My Documents"}
         meta={
           <>
             {doc.status !== "PUBLISHED" && <StatusBadge tone={status.tone}>{status.label}</StatusBadge>}
@@ -95,7 +95,7 @@ export function DocumentViewer({ id }: { id: string }) {
             <FilePreview documentId={doc.id} version={doc.currentVersion} onOpened={onOpened} />
           ) : (
             // Only surveys can be published without a file.
-            <EmptyState icon={ClipboardList} title="No file to read" description="There is nothing to open first – you can complete the induction straight away." />
+            <EmptyState icon={ClipboardList} title="No file to read" description="There is nothing to open first – you can complete the response form straight away." />
           )}
         </div>
 

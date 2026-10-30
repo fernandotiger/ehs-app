@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, ClipboardList, FileStack, FileUp, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, ClipboardList, FileStack, FileUp, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PaginationBar } from "@/components/common/pagination-bar";
@@ -12,20 +12,38 @@ import { useCurrentUser } from "@/components/providers/current-user-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useUrlSearchText, useUrlState } from "@/hooks/use-url-state";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
 import { PERMISSIONS } from "@/lib/permissions";
-import { libraryQuerySchema, type LibraryStatusFilter } from "@/lib/validation/documents";
-import { useComplianceSummary, useDocumentLibrary, type LibraryItem } from "../../api";
+import { LIBRARY_TABS, libraryQuerySchema, type LibraryStatusFilter, type LibraryTab } from "@/lib/validation/documents";
+import { useComplianceSummary, useDocumentLibrary, useLibrarySummary, type LibraryItem } from "../../api";
 import { audienceLabel, DOCUMENT_STATUS_META, formatDate } from "../../format";
+import { BannerStat, BannerStatGroup, type BannerStatHelp } from "../banner-stats";
 import { ComplianceProgress } from "../compliance-progress";
+import { DocumentCreateButtons } from "../create-buttons";
 import { FileTypeIcon } from "../file-type-icon";
 import { CategoryFilter, FilterSelect, SearchBox, TagFilter } from "../filters";
 import { SurveyIndicator } from "../survey/survey-indicator";
+import { SurveyLibraryTab } from "../survey/survey-library";
 import { TagChips } from "../tag-chips";
 
 const PAGE_SIZE = 20;
-/** URL state; `type` is fixed to "document" and `createdBy` belongs to the Survey Library. */
+/** URL state of the Documents tab; `type` is fixed to "document" and `createdBy` belongs to the Response forms tab. */
 const urlSchema = libraryQuerySchema.pick({ page: true, q: true, categoryId: true, tagId: true, status: true });
+/** Each tab has its own filters, so switching tab starts it clean. */
+const TAB_RESET_KEYS = ["page", "q", "categoryId", "tagId", "status", "createdBy"] as const;
+
+/** Plain-word meaning of the banner numbers (ⓘ next to each group, and the hover title of each number). */
+const DOCUMENT_HELP = {
+  toDo: { label: "To do", text: "Published documents that still have people who must acknowledge them." },
+  overdue: { label: "Overdue", text: "Published documents where someone is past the acknowledgement deadline." },
+  total: { label: "Documents", text: "All active documents in this library – published and drafts, as listed in the Documents tab." },
+} satisfies Record<string, BannerStatHelp>;
+const FORM_HELP = {
+  toComplete: { label: "To complete", text: "Published, open response forms that someone in their audience still has to complete (or whose file someone still has to acknowledge)." },
+  overdue: { label: "Overdue", text: "Open response forms where someone is past the deadline to complete it or to acknowledge its file." },
+  completed: { label: "Completed", text: "Published response forms that everyone in their audience has completed (and acknowledged, when that is asked)." },
+} satisfies Record<string, BannerStatHelp>;
 
 const STATUS_OPTIONS: { id: LibraryStatusFilter; name: string }[] = [
   { id: "PUBLISHED", name: "Published" },
@@ -48,8 +66,71 @@ function AckCell({ item }: { item: LibraryItem }) {
   return <ComplianceProgress stats={item.compliance} compact className="w-full min-w-72 max-w-96" />;
 }
 
-/** Document Library for document managers and acknowledgement reporters (surveys have their own Survey Library). */
+/**
+ * Document Library for document managers and acknowledgement reporters: tabs Documents (default) · Response forms
+ * (`?tab=forms`, the former Survey / Induction Library – owner's decision, 30 Oct 2026). The banner offers both
+ * create buttons (the one for the open tab is the solid one) and, whatever the tab, two groups of library-wide numbers
+ * separated by a thin line: Documents (To do · Overdue · Documents) and Response forms (To complete · Overdue ·
+ * Completed) – owner's request, same day. Rules: library-summary-rules.ts; the table's search and filters don't change them.
+ */
 export function DocumentLibrary() {
+  const { can } = useCurrentUser();
+  const canManage = can(PERMISSIONS.DOCUMENTS_MANAGE);
+  const tab = useUrlTab<LibraryTab>("tab", "documents", LIBRARY_TABS, { resetKeys: TAB_RESET_KEYS });
+  const summary = useLibrarySummary().data;
+  const docs = summary?.documents;
+  const forms = summary?.forms;
+
+  return (
+    <>
+      <PageBanner
+        title="Document Library"
+        description="Publish documents and response forms, choose who must read or complete them, and follow their progress."
+        actions={canManage ? <DocumentCreateButtons primary={tab.value === "forms" ? "form" : "document"} /> : undefined}
+      >
+        {/* Side by side with a thin vertical line once the banner is wide enough; stacked with a horizontal line on phones. */}
+        <div className="grid gap-4 @3xl/banner:grid-cols-2 @3xl/banner:gap-0">
+          <BannerStatGroup title="Documents" icon={FileStack} href="/documents/manage" help={Object.values(DOCUMENT_HELP)} className="@3xl/banner:pr-6">
+            <BannerStat label="To do" value={docs?.toDo ?? "–"} icon={ClipboardCheck} highlight={Boolean(docs?.toDo)} hint={DOCUMENT_HELP.toDo.text} />
+            <BannerStat label="Overdue" value={docs?.overdue ?? "–"} icon={AlertTriangle} hint={DOCUMENT_HELP.overdue.text} />
+            <BannerStat label="Documents" value={docs?.total ?? "–"} icon={FileStack} hint={DOCUMENT_HELP.total.text} />
+          </BannerStatGroup>
+          <BannerStatGroup
+            title="Response forms"
+            icon={ClipboardList}
+            href="/documents/manage?tab=forms"
+            help={Object.values(FORM_HELP)}
+            className="border-t border-white/25 pt-4 @3xl/banner:border-t-0 @3xl/banner:border-l @3xl/banner:pt-0 @3xl/banner:pl-6"
+          >
+            <BannerStat label="To complete" value={forms?.toComplete ?? "–"} icon={ClipboardCheck} highlight={Boolean(forms?.toComplete)} hint={FORM_HELP.toComplete.text} />
+            <BannerStat label="Overdue" value={forms?.overdue ?? "–"} icon={AlertTriangle} hint={FORM_HELP.overdue.text} />
+            <BannerStat label="Completed" value={forms?.completed ?? "–"} icon={CheckCircle2} hint={FORM_HELP.completed.text} />
+          </BannerStatGroup>
+        </div>
+      </PageBanner>
+
+      <Tabs {...tab} className="gap-4">
+        <TabsList className="h-9 w-full sm:w-fit">
+          <TabsTrigger value="documents" className="px-3">
+            <FileStack /> Documents
+          </TabsTrigger>
+          <TabsTrigger value="forms" className="px-3">
+            <ClipboardList /> Response forms
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="documents">
+          <DocumentsTab />
+        </TabsContent>
+        <TabsContent value="forms">
+          <SurveyLibraryTab />
+        </TabsContent>
+      </Tabs>
+    </>
+  );
+}
+
+/** Documents tab: acknowledgement totals for reporters, filters and the documents table (surveys are left out). */
+function DocumentsTab() {
   const router = useRouter();
   const { can, canAny } = useCurrentUser();
   const canManage = can(PERMISSIONS.DOCUMENTS_MANAGE);
@@ -63,20 +144,6 @@ export function DocumentLibrary() {
 
   return (
     <>
-      <PageBanner
-        title="Document Library"
-        description="Publish policies and procedures, choose who must read them, and track acknowledgements."
-        actions={
-          canManage ? (
-            <Button asChild size="lg" className="bg-white text-brand-dark hover:bg-white/90">
-              <Link href="/documents/manage/new">
-                <FileUp /> Upload document
-              </Link>
-            </Button>
-          ) : undefined
-        }
-      />
-
       {canReport && (
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard label="Tracked documents" value={totals?.documents ?? "–"} icon={ClipboardList} />

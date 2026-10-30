@@ -30,16 +30,17 @@ export function StatCard({
 }) {
   const body = (
     <Card className={cn("h-full gap-0 py-0 transition-shadow", href && "hover:shadow-md", className)}>
-      <CardContent className="flex items-center gap-4 p-4">
+      {/* Phones: tighter padding and a smaller icon, and labels wrap to two lines instead of being cut off. */}
+      <CardContent className="flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
         {Icon && (
-          <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", TONES[tone])}>
-            <Icon className="size-5" />
+          <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl sm:size-11", TONES[tone])}>
+            <Icon className="size-4 sm:size-5" />
           </span>
         )}
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="line-clamp-2 text-xs font-medium break-words text-muted-foreground">{label}</p>
           <p className="font-heading text-2xl font-semibold leading-tight">{value}</p>
-          {hint && <p className="truncate text-xs text-muted-foreground">{hint}</p>}
+          {hint && <p className="line-clamp-2 text-xs break-words text-muted-foreground">{hint}</p>}
         </div>
       </CardContent>
     </Card>

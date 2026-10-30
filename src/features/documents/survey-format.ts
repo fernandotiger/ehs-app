@@ -3,11 +3,27 @@ import type { BadgeTone } from "@/components/common/status-badge";
 import { surveyDefinitionSchema, type SurveyDefinitionInput, type SurveyQuestionTypeValue } from "@/lib/validation/document-surveys";
 import type { MySurveyStatus, SurveyDto } from "@/server/modules/documents/survey.dto";
 
-/** Plain-word labels, drafts and examples for the survey builder and reader screens (shown to people as "Employee Induction"). */
+/** Plain-word labels, drafts and examples for the survey builder and reader screens (shown to people as "Response form"). */
 
-/** A survey's management page (Survey Library); documents use /documents/manage/:id. */
+/** A survey's management page (opened from the Document Library's Response forms tab); documents use /documents/manage/:id. */
 export function surveyPageHref(documentId: string): string {
   return `/documents/surveys/library/${documentId}`;
+}
+
+/** The Document Library's Response forms tab (the old Survey / Induction Library route redirects here). */
+export const RESPONSE_FORMS_LIBRARY_HREF = "/documents/manage?tab=forms";
+
+/**
+ * Where an old Survey / Induction Library address (`/documents/surveys/library?…`, from links and favourites saved
+ * before 30 Oct 2026) goes now: the Response forms tab, keeping its search, status, "Created by me" and page.
+ */
+export function responseFormsLibraryHref(query: Record<string, string | string[] | undefined>): string {
+  const params = new URLSearchParams({ tab: "forms" });
+  for (const [key, value] of Object.entries(query)) {
+    if (key === "tab" || key === "type") continue;
+    for (const v of Array.isArray(value) ? value : value === undefined ? [] : [value]) if (v.trim()) params.append(key, v);
+  }
+  return `/documents/manage?${params.toString()}`;
 }
 
 export const QUESTION_TYPE_META: Record<SurveyQuestionTypeValue, { label: string; hint: string; icon: LucideIcon }> = {
@@ -17,11 +33,11 @@ export const QUESTION_TYPE_META: Record<SurveyQuestionTypeValue, { label: string
 };
 
 export const MY_SURVEY_STATUS_META: Record<MySurveyStatus, { label: string; tone: BadgeTone }> = {
-  ANSWERED: { label: "Induction completed", tone: "success" },
-  REQUIRED: { label: "Induction to complete", tone: "warning" },
-  OVERDUE: { label: "Induction to complete", tone: "danger" },
-  OPTIONAL: { label: "Induction", tone: "brand" },
-  CLOSED: { label: "Induction closed", tone: "neutral" },
+  ANSWERED: { label: "Response form completed", tone: "success" },
+  REQUIRED: { label: "Response form to complete", tone: "warning" },
+  OVERDUE: { label: "Response form to complete", tone: "danger" },
+  OPTIONAL: { label: "Response form", tone: "brand" },
+  CLOSED: { label: "Response form closed", tone: "neutral" },
 };
 
 export const ANONYMOUS_EXPLANATION = "Your name won't be saved with your answers. We only record that you took part.";

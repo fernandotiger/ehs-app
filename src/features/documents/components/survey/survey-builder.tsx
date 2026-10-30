@@ -297,12 +297,12 @@ export function SurveyBuilder({
     <div className="space-y-5">
       <div className="grid gap-4">
         <Field data-invalid={Boolean(errors.title)}>
-          <FieldLabel htmlFor={`${idPrefix}-title`}>Induction title</FieldLabel>
+          <FieldLabel htmlFor={`${idPrefix}-title`}>Response form title</FieldLabel>
           <Input
             id={`${idPrefix}-title`}
             value={draft.title}
             maxLength={SURVEY_LIMITS.titleMax}
-            placeholder="e.g. Manual handling induction"
+            placeholder="e.g. Manual handling – understanding check"
             className="h-10"
             aria-invalid={Boolean(errors.title)}
             onChange={(e) => set("title", e.target.value)}
@@ -318,7 +318,7 @@ export function SurveyBuilder({
             value={draft.intro}
             maxLength={SURVEY_LIMITS.introMax}
             rows={2}
-            placeholder="Tell people what this induction covers, e.g. “Read the site rules, then answer a few questions.”"
+            placeholder="Tell people what this response form covers, e.g. “Read the site rules, then answer a few questions.”"
             onChange={(e) => set("intro", e.target.value)}
           />
           <Err errors={errors} path="intro" />
@@ -351,7 +351,7 @@ export function SurveyBuilder({
                 />
                 <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">days</span>
               </div>
-              <FieldDescription>Counted from when the induction is published.</FieldDescription>
+              <FieldDescription>Counted from when the response form is published.</FieldDescription>
               <Err errors={errors} path="dueDays" />
             </Field>
           )}

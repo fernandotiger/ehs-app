@@ -5,7 +5,7 @@ import type { QuestionDraft, SurveyDraft } from "../../survey-format";
 import { mergeAck, mergeAudience, type KnownStructure } from "../manage/document-seed";
 
 /**
- * Create induction – what a favourite keeps (brief 09 §2B): the induction settings (title,
+ * Create response form – what a favourite keeps (brief 09 §2B): the response form settings (title,
  * introduction, everyone must complete it, complete within N days, anonymous answers), the questions
  * as drafted, who should have access and the acknowledgement settings.
  *

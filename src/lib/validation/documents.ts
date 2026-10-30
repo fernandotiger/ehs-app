@@ -191,6 +191,10 @@ export type LibraryStatusFilter = (typeof LIBRARY_STATUS_FILTERS)[number];
 export const LIBRARY_TYPE_FILTERS = ["survey", "document"] as const;
 export type LibraryTypeFilter = (typeof LIBRARY_TYPE_FILTERS)[number];
 
+/** Document Library tabs (URL `tab`): Documents (default) · Response forms (the surveys, shown to people as response forms). */
+export const LIBRARY_TABS = ["documents", "forms"] as const;
+export type LibraryTab = (typeof LIBRARY_TABS)[number];
+
 export const libraryQuerySchema = paginationQuerySchema.extend({
   categoryId: idSchema.optional(),
   tagId: idSchema.optional(),

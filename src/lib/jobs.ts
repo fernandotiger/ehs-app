@@ -42,7 +42,7 @@ export const DUE_WORK_KIND_INFO: Record<DueWorkKind, DueWorkKindDescriptor> = {
   "law.task": { kind: "law.task", label: "Law tasks", module: "law" },
   "document.acknowledgement": { kind: "document.acknowledgement", label: "Document acknowledgements", module: "documents" },
   action: { kind: "action", label: "Actions", module: "actions" },
-  "document.survey": { kind: "document.survey", label: "Employee inductions", module: "documents" },
+  "document.survey": { kind: "document.survey", label: "Response forms", module: "documents" },
   "slaw.action": { kind: "slaw.action", label: "Simplified law actions", module: "simplified-law" },
 };
 

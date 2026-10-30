@@ -104,7 +104,7 @@ const SURVEY_ENTITY = "DocumentSurvey";
 export const documentSurveyProvider: DueWorkProvider = {
   kind: "document.survey",
   module: "documents",
-  label: "Employee inductions",
+  label: "Response forms",
   jobTarget: true,
 
   async listForUser(user: CurrentUser): Promise<DueWorkItem[]> {
@@ -124,7 +124,7 @@ export const documentSurveyProvider: DueWorkProvider = {
           entityType: SURVEY_ENTITY,
           entityId: t.id,
           reference: doc.referenceCode ?? undefined,
-          title: `Complete induction: ${doc.title}`,
+          title: `Complete response form: ${doc.title}`,
           href: documentLink(doc.id),
           dueDate: t.dueAt ? localDate(new Date(t.dueAt), user.timeZone) : today,
           ownerId: user.id,
@@ -169,7 +169,7 @@ export const documentSurveyProvider: DueWorkProvider = {
             entityType: SURVEY_ENTITY,
             entityId: survey.id,
             reference: doc.referenceCode ?? undefined,
-            title: `Complete induction: ${doc.title}`,
+            title: `Complete response form: ${doc.title}`,
             href: documentLink(doc.id),
             dueDate: localDate(dueAt, timeZone),
             ownerId: u.id,

@@ -22,9 +22,9 @@ function notifiedText(notified: number): string {
 }
 
 /**
- * Edit induction: everything is editable until the first answer. Afterwards the questions lock (with
- * an explanation) and "Replace induction" starts a new survey while the old one and its answers are
- * kept under Previous inductions.
+ * Edit response form: everything is editable until the first answer. Afterwards the questions lock (with
+ * an explanation) and "Replace response form" starts a new survey while the old one and its answers are
+ * kept under Previous response forms.
  */
 export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageDocumentDto; survey: SurveyDto; onDone: () => void; onReload: () => void }) {
   const original = useMemo(() => draftFromSurvey(survey), [survey]);
@@ -54,7 +54,7 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
     if (!valid()) return;
     try {
       const res = await save.mutateAsync({ survey: draftToInput(draft), expectedVersion: survey.version });
-      toast.success(`Induction saved${notifiedText(res.notified)}.`);
+      toast.success(`Response form saved${notifiedText(res.notified)}.`);
       setShowErrors(false);
     } catch (error) {
       if (isStaleVersion(error)) setStale(true);
@@ -65,7 +65,7 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
   async function replaceSurvey() {
     try {
       const res = await replace.mutateAsync({ survey: draftToInput(draft), expectedVersion: survey.version });
-      toast.success(`New induction started – the previous one is kept under Previous inductions${notifiedText(res.notified)}.`);
+      toast.success(`New response form started – the previous one is kept under Previous response forms${notifiedText(res.notified)}.`);
       onDone();
     } catch (error) {
       if (isStaleVersion(error)) setStale(true);
@@ -76,7 +76,7 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
   return (
     <div className="space-y-4">
       {guard.dialog}
-      {stale && <StaleVersionAlert draft={draftToInput(draft)} draftName="induction" onReload={onReload} />}
+      {stale && <StaleVersionAlert draft={draftToInput(draft)} draftName="response form" onReload={onReload} />}
 
       {mode === "edit" && survey.questionsLocked && (
         <Alert className="border-warning/40 bg-warning/10">
@@ -87,7 +87,7 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
               {answersLabel(survey.responseCount)} have already been given, so changing the questions would mix up the results. You can still change the title,
               introduction, “Everyone must complete it”, the deadline, and switch anonymous answers on.
             </p>
-            <p className="mt-1">To ask different questions, replace the induction – the current one and its answers are kept under Previous inductions.</p>
+            <p className="mt-1">To ask different questions, replace the response form – the current one and its answers are kept under Previous response forms.</p>
             <Button
               type="button"
               variant="outline"
@@ -98,7 +98,7 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
                 setShowErrors(false);
               }}
             >
-              <Replace /> Replace induction
+              <Replace /> Replace response form
             </Button>
           </AlertDescription>
         </Alert>
@@ -106,9 +106,9 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
       {mode === "replace" && (
         <Alert className="border-brand/30 bg-brand-soft/60">
           <Replace />
-          <AlertTitle>New induction</AlertTitle>
+          <AlertTitle>New response form</AlertTitle>
           <AlertDescription>
-            <p>Change the questions as you like. When you press “Replace induction”, the current one closes for good, its answers stay readable under Previous inductions, and everyone can complete the new one.</p>
+            <p>Change the questions as you like. When you press “Replace response form”, the current one closes for good, its answers stay readable under Previous response forms, and everyone can complete the new one.</p>
             <Button
               type="button"
               variant="outline"
@@ -120,7 +120,7 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
                 setShowErrors(false);
               }}
             >
-              <Undo2 /> Keep the current induction
+              <Undo2 /> Keep the current response form
             </Button>
           </AlertDescription>
         </Alert>
@@ -141,7 +141,7 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
       </Card>
 
       <div className="sticky bottom-20 z-10 flex flex-wrap items-center justify-end gap-2 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur md:bottom-4">
-        {dirty && <span className="mr-auto text-xs text-muted-foreground">{mode === "replace" ? "New induction not saved yet" : "Unsaved changes"}</span>}
+        {dirty && <span className="mr-auto text-xs text-muted-foreground">{mode === "replace" ? "New response form not saved yet" : "Unsaved changes"}</span>}
         {mode === "edit" ? (
           <>
             <Button type="button" variant="ghost" disabled={!dirty || busy} onClick={() => setDraft(original)}>
@@ -155,14 +155,14 @@ export function SurveyEditView({ doc, survey, onDone, onReload }: { doc: ManageD
           <ConfirmDialog
             trigger={
               <Button type="button" size="lg" disabled={busy}>
-                {replace.isPending ? <Spinner /> : <Replace />} Replace induction
+                {replace.isPending ? <Spinner /> : <Replace />} Replace response form
               </Button>
             }
-            title="Replace the induction?"
-            description={`The current induction and its ${answersLabel(survey.responseCount)} are kept read-only under Previous inductions. ${
-              doc.status === "PUBLISHED" ? "Everyone in the audience is told about the new induction and can complete it." : "The new induction goes live when it is published."
+            title="Replace the response form?"
+            description={`The current response form and its ${answersLabel(survey.responseCount)} are kept read-only under Previous response forms. ${
+              doc.status === "PUBLISHED" ? "Everyone in the audience is told about the new response form and can complete it." : "The new response form goes live when it is published."
             }`}
-            confirmLabel="Replace induction"
+            confirmLabel="Replace response form"
             onConfirm={() => (valid() ? replaceSurvey() : undefined)}
           />
         )}

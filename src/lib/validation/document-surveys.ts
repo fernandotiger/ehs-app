@@ -70,7 +70,7 @@ export function surveyDefinitionIssues(def: { questions: Pick<SurveyQuestionInpu
 }
 
 const surveyDefinitionBaseSchema = z.object({
-  title: z.string().trim().min(3, "Give the induction a title (at least 3 characters)").max(SURVEY_LIMITS.titleMax),
+  title: z.string().trim().min(3, "Give the response form a title (at least 3 characters)").max(SURVEY_LIMITS.titleMax),
   intro: z.string().trim().max(SURVEY_LIMITS.introMax, `Keep the introduction under ${SURVEY_LIMITS.introMax} characters`),
   /** "Everyone must complete it". */
   isMandatory: z.boolean(),
@@ -81,7 +81,7 @@ const surveyDefinitionBaseSchema = z.object({
   questions: z
     .array(surveyQuestionSchema)
     .min(SURVEY_LIMITS.minQuestions, "Add at least one question")
-    .max(SURVEY_LIMITS.maxQuestions, `An induction can have at most ${SURVEY_LIMITS.maxQuestions} questions`),
+    .max(SURVEY_LIMITS.maxQuestions, `A response form can have at most ${SURVEY_LIMITS.maxQuestions} questions`),
 });
 
 export const surveyDefinitionSchema = surveyDefinitionBaseSchema.superRefine((def, ctx) => {

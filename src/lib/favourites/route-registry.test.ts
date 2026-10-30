@@ -83,6 +83,7 @@ describe("route registry – scope rules", () => {
     expect(tabKey("/incidents/reports")).toBe("tab");
     expect(tabKey("/documents")).toBe("filter");
     expect(tabKey("/documents/surveys")).toBe("filter");
+    expect(tabKey("/documents/manage")).toBe("tab");
     expect(tabKey("/actions")).toBe("view");
     expect(tabKey("/risk/strategy")).toBe("tab");
     expect(tabKey("/risk/reports")).toBe("report");

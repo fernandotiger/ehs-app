@@ -6,23 +6,26 @@ import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge, type BadgeTone } from "@/components/common/status-badge";
 import { PageBanner } from "@/components/layout/page-header";
+import { useCurrentUser } from "@/components/providers/current-user-provider";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUrlSearchText, useUrlState, useUrlTab } from "@/hooks/use-url-state";
+import { PERMISSIONS } from "@/lib/permissions";
 import { MY_SURVEY_FILTERS, mySurveysQuerySchema, type MySurveyFilter } from "@/lib/validation/documents";
 import { cn } from "@/lib/utils";
 import { usePendingAcknowledgements, type MyDocumentItem } from "../../api";
 import { formatDate, relativeDue } from "../../format";
 import { useMySurveys, usePendingSurveyAnswers, type MySurveyStatus } from "../../survey-api";
 import { AckStatusBadge } from "../ack-status-badge";
+import { BannerStat } from "../banner-stats";
+import { CreateResponseFormButton } from "../create-buttons";
 import { SearchBox } from "../filters";
-import { BannerStat } from "../my-documents";
 
 const PAGE_SIZE = 20;
 /** URL state (the `filter` tab is read with `useUrlTab`). */
 const urlSchema = mySurveysQuerySchema.omit({ pageSize: true, filter: true });
 
-/** Plain labels for the reader's own list (the document lists use "Induction to complete" etc.). */
+/** Plain labels for the reader's own list (the document lists use "Response form to complete" etc.). */
 const STATUS_META: Record<MySurveyStatus, { label: string; tone: BadgeTone }> = {
   REQUIRED: { label: "To complete", tone: "warning" },
   OVERDUE: { label: "Overdue", tone: "danger" },
@@ -78,8 +81,12 @@ function SurveyRow({ item, ackPending, answerPending }: { item: MyDocumentItem; 
   );
 }
 
-/** My Employee Inductions (menu "My Inductions") – the employee's list of document surveys to complete (kept out of My Documents). */
+/**
+ * My Response Forms – the employee's list of document surveys to complete (kept out of My Documents). Managers also get
+ * Create response form in the banner (owner's request, 30 Oct 2026).
+ */
 export function MySurveys() {
+  const { can } = useCurrentUser();
   const tab = useUrlTab<MySurveyFilter>("filter", "all", MY_SURVEY_FILTERS);
   const filter = tab.value;
   const [{ page, q }, set] = useUrlState(urlSchema);
@@ -91,7 +98,11 @@ export function MySurveys() {
 
   return (
     <>
-      <PageBanner title="My Employee Inductions" description="Inductions you have been asked to complete. Open one to read any file that comes with it and answer its questions.">
+      <PageBanner
+        title="My Response Forms"
+        description="Response forms you have been asked to complete. Open one to read any file that comes with it and answer its questions."
+        actions={can(PERMISSIONS.DOCUMENTS_MANAGE) ? <CreateResponseFormButton /> : undefined}
+      >
         <div className="grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
           <BannerStat label="To complete" value={summary?.toAnswer ?? "–"} icon={ClipboardCheck} highlight={Boolean(summary?.toAnswer)} />
           <BannerStat label="Overdue" value={summary?.overdue ?? "–"} icon={AlertTriangle} />
@@ -117,7 +128,7 @@ export function MySurveys() {
           </TabsList>
         </Tabs>
         <div className="lg:w-80">
-          <SearchBox value={search} onChange={setSearch} placeholder="Search inductions" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search response forms" />
         </div>
       </div>
 
@@ -128,9 +139,9 @@ export function MySurveys() {
       ) : query.data.items.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title={filter === "todo" && !q ? "You're all caught up" : "No inductions found"}
+          title={filter === "todo" && !q ? "You're all caught up" : "No response forms found"}
           description={
-            filter === "todo" && !q ? "There is no induction waiting for you to complete." : q ? "Try a different search." : "Inductions you are asked to complete will appear here."
+            filter === "todo" && !q ? "There is no response form waiting for you to complete." : q ? "Try a different search." : "Response forms you are asked to complete will appear here."
           }
         />
       ) : (

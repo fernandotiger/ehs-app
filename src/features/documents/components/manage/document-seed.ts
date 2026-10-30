@@ -8,7 +8,7 @@ import type { Lookups } from "@/features/shared/lookups";
  *
  * Never kept: the file, and nothing at all when the page was filled in by Risk "Save as document"
  * (`?uploadId&title&description` – that page can't be a favourite, so the form registers no capture).
- * The audience and acknowledgement helpers are shared with Create induction (survey-seed.ts).
+ * The audience and acknowledgement helpers are shared with Create response form (survey-seed.ts).
  */
 
 /** Company structure and roles that exist now (unknown lists → no check). */

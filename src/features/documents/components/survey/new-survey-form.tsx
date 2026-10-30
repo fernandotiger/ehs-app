@@ -25,7 +25,7 @@ import { z } from "zod";
 import { ackSettingsSchema, audienceSchema, EMPTY_AUDIENCE, type CreateSurveyDocumentInput, type UpdateDocumentInput } from "@/lib/validation/documents";
 import { useCreateSurveyDocument } from "../../api";
 import { useSurveySettings } from "../../survey-api";
-import { draftToInput, emptyDraft, exampleDraft, SURVEY_EXAMPLES, surveyPageHref, validateDraft, type SurveyDraft, type SurveyDraftUpdater, type SurveyExampleKey } from "../../survey-format";
+import { draftToInput, emptyDraft, exampleDraft, RESPONSE_FORMS_LIBRARY_HREF, SURVEY_EXAMPLES, surveyPageHref, validateDraft, type SurveyDraft, type SurveyDraftUpdater, type SurveyExampleKey } from "../../survey-format";
 import { AckSettingsFields } from "../manage/ack-settings-fields";
 import { AudienceBuilder } from "../manage/audience-builder";
 import { knownStructureOf, type KnownStructure } from "../manage/document-seed";
@@ -167,7 +167,7 @@ function SurveyCreateForm({ seed, known }: { seed: Snapshot | null; known: Known
             : null;
           const created = await create.mutateAsync({ ...values, survey: draftToInput(survey), uploadId, publish: nextIntent === "publish" });
           toast.success(
-            nextIntent === "publish" ? `Induction published – ${created.notified.toLocaleString()} ${created.notified === 1 ? "person" : "people"} notified.` : "Draft saved.",
+            nextIntent === "publish" ? `Response form published – ${created.notified.toLocaleString()} ${created.notified === 1 ? "person" : "people"} notified.` : "Draft saved.",
           );
           router.push(surveyPageHref(created.id));
         } catch (error) {
@@ -185,12 +185,12 @@ function SurveyCreateForm({ seed, known }: { seed: Snapshot | null; known: Known
   return (
     <>
       <PageHeader
-        title="Create Employee Induction"
+        title="Create Response Form"
         description="Ask people a few questions, add a file for them to read first if you like, and choose who should complete it."
         actions={
           <Button asChild variant="outline">
-            <Link href="/documents/surveys/library">
-              <ClipboardList /> Existing inductions
+            <Link href={RESPONSE_FORMS_LIBRARY_HREF}>
+              <ClipboardList /> Existing response forms
             </Link>
           </Button>
         }
@@ -199,7 +199,7 @@ function SurveyCreateForm({ seed, known }: { seed: Snapshot | null; known: Known
 
       <form className="max-w-4xl space-y-4 pb-4" onSubmit={(e) => e.preventDefault()} noValidate>
         <div ref={surveyRef} className="scroll-mt-20">
-          <FormSection step={1} title="Induction questions" description="The induction goes live when you publish it. If you add a file, people open it before answering.">
+          <FormSection step={1} title="Response form questions" description="The response form goes live when you publish it. If you add a file, people open it before answering.">
             <div className="space-y-4">
               <ExampleStarters onPick={pickExample} disabled={busy} />
               <SurveyBuilder draft={survey} onChange={updateSurvey} errors={surveyErrors} idPrefix="new-survey" />
@@ -210,7 +210,7 @@ function SurveyCreateForm({ seed, known }: { seed: Snapshot | null; known: Known
         <FormSection
           step={2}
           title="File (optional)"
-          description="Something people read before answering – for example a procedure, training slides or a notice. Leave it empty for an induction with questions only."
+          description="Something people read before answering – for example a procedure, training slides or a notice. Leave it empty for a response form with questions only."
         >
           <FileDropzone
             id="survey-file"
@@ -225,7 +225,7 @@ function SurveyCreateForm({ seed, known }: { seed: Snapshot | null; known: Known
           />
         </FormSection>
 
-        <FormSection step={3} title="Who should have access?" description="Combine as many audiences as you need – anyone matching at least one will see the induction and can complete it.">
+        <FormSection step={3} title="Who should have access?" description="Combine as many audiences as you need – anyone matching at least one will see the response form and can complete it.">
           <AudienceBuilder control={control} />
         </FormSection>
 

@@ -44,7 +44,7 @@ async function assertUniqueIdentity(db: DbClient, input: { title: string; refere
     where: { ...notSelf, status: { not: "ARCHIVED" }, title: { equals: input.title.trim(), mode: "insensitive" } },
     select: { id: true },
   });
-  if (clash) throw new ConflictError("An active document or induction with this title already exists.");
+  if (clash) throw new ConflictError("An active document or response form with this title already exists.");
   const reference = emptyToNull(input.referenceCode);
   if (reference) {
     const refClash = await db.document.findFirst({ where: { ...notSelf, referenceCode: { equals: reference, mode: "insensitive" } }, select: { id: true } });

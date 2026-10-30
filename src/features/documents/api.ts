@@ -27,6 +27,7 @@ import type {
   DocumentAuditEntry,
   DocumentViewerDto,
   LibraryItem,
+  LibrarySummaryDto,
   ManageDocumentDto,
   MyDocumentsResponse,
   TagDto,
@@ -87,6 +88,7 @@ export const documentKeys = {
   categories: ["documents", "categories"] as const,
   tags: (scope: TagScope) => ["documents", "tags", scope] as const,
   library: (params: LibraryParams) => ["documents", "library", params] as const,
+  librarySummary: ["documents", "library-summary"] as const,
   manage: (id: string) => ["documents", "manage", id] as const,
   versions: (id: string) => ["documents", "versions", id] as const,
   compliance: (id: string) => ["documents", "compliance", id] as const,
@@ -198,6 +200,14 @@ export function useDocumentLibrary(params: LibraryParams) {
     queryKey: documentKeys.library(params),
     queryFn: ({ signal }) => api.get<Paginated<LibraryItem>>("/api/documents", { ...params }, signal),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** The Document Library banner numbers (library-wide, not affected by the table's search or filters). */
+export function useLibrarySummary() {
+  return useQuery({
+    queryKey: documentKeys.librarySummary,
+    queryFn: ({ signal }) => api.get<LibrarySummaryDto>("/api/documents/library-summary", undefined, signal),
   });
 }
 

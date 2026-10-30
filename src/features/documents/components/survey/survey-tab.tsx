@@ -26,7 +26,7 @@ function SurveySummaryCard({ doc, survey, canManage }: { doc: ManageDocumentDto;
   const run = async (action: "close" | "reopen") => {
     try {
       await openState.mutateAsync({ action, expectedVersion: survey.version });
-      toast.success(action === "close" ? "Induction closed – no more answers are accepted." : "Induction reopened.");
+      toast.success(action === "close" ? "Response form closed – no more answers are accepted." : "Response form reopened.");
     } catch (error) {
       toast.error(errorMessage(error));
     }
@@ -38,7 +38,7 @@ function SurveySummaryCard({ doc, survey, canManage }: { doc: ManageDocumentDto;
       <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-brand uppercase">
-            <ClipboardList className="size-4" /> Employee Induction
+            <ClipboardList className="size-4" /> Response form
           </p>
           <p className="mt-0.5 font-semibold leading-snug">{survey.title}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -65,17 +65,17 @@ function SurveySummaryCard({ doc, survey, canManage }: { doc: ManageDocumentDto;
               <ConfirmDialog
                 trigger={
                   <Button variant="outline" disabled={openState.isPending}>
-                    <Lock /> Close induction
+                    <Lock /> Close response form
                   </Button>
                 }
-                title="Close the induction?"
-                description="Nobody can complete it any more. The answers so far are kept, and you can reopen the induction later."
-                confirmLabel="Close induction"
+                title="Close the response form?"
+                description="Nobody can complete it any more. The answers so far are kept, and you can reopen the response form later."
+                confirmLabel="Close response form"
                 onConfirm={() => run("close")}
               />
             ) : (
               <Button variant="outline" disabled={openState.isPending} onClick={() => void run("reopen")}>
-                <LockOpen /> Reopen induction
+                <LockOpen /> Reopen response form
               </Button>
             )}
           </div>
@@ -99,14 +99,14 @@ function PreviousSurveys({ documentId, data }: { documentId: string; data: Docum
             </p>
           </div>
           <Button variant="outline" onClick={() => setSelected(null)}>
-            <ArrowLeft /> All previous inductions
+            <ArrowLeft /> All previous response forms
           </Button>
         </div>
         <SurveyResultsView documentId={documentId} surveyId={survey.id} />
       </div>
     );
   }
-  if (!data.previous.length) return <EmptyState icon={History} title="No previous inductions" description="When you replace an induction, the old one and its answers are kept here." />;
+  if (!data.previous.length) return <EmptyState icon={History} title="No previous response forms" description="When you replace a response form, the old one and its answers are kept here." />;
   return (
     <Card className="gap-0 py-0">
       <ul className="divide-y">
@@ -128,7 +128,7 @@ function PreviousSurveys({ documentId, data }: { documentId: string; data: Docum
   );
 }
 
-/** Induction page → Induction tab: Results · Who has completed it · Edit induction · Previous inductions. New ones come from Create induction. */
+/** Response form page → Response form tab: Results · Who has completed it · Edit response form · Previous response forms. New ones come from Create response form. */
 export function SurveyTab({ doc, canManage, canReport }: { doc: ManageDocumentDto; canManage: boolean; canReport: boolean }) {
   const query = useDocumentSurvey(doc.id);
   const [view, setView] = useState<View>(canReport ? "results" : "edit");
@@ -141,10 +141,10 @@ export function SurveyTab({ doc, canManage, canReport }: { doc: ManageDocumentDt
   if (!survey) {
     return (
       <div className="space-y-6">
-        <EmptyState icon={ClipboardList} title="No induction" description="This document has no induction questions. New inductions are created on the Create induction page." />
+        <EmptyState icon={ClipboardList} title="No response form" description="This document has no response form questions. New response forms are created with Create response form in the Document Library." />
         {data.previous.length > 0 && (
           <div className="space-y-2">
-            <h3 className="font-semibold">Previous inductions</h3>
+            <h3 className="font-semibold">Previous response forms</h3>
             <PreviousSurveys documentId={doc.id} data={data} />
           </div>
         )}
@@ -155,8 +155,8 @@ export function SurveyTab({ doc, canManage, canReport }: { doc: ManageDocumentDt
   const views: { value: View; label: string; icon: typeof Users; show: boolean }[] = [
     { value: "results", label: "Results", icon: BarChart3, show: canReport },
     { value: "people", label: "Who has completed it", icon: Users, show: canReport },
-    { value: "edit", label: "Edit induction", icon: PencilLine, show: canManage && doc.status !== "ARCHIVED" },
-    { value: "previous", label: `Previous inductions${data.previous.length ? ` (${data.previous.length})` : ""}`, icon: History, show: canReport && data.previous.length > 0 },
+    { value: "edit", label: "Edit response form", icon: PencilLine, show: canManage && doc.status !== "ARCHIVED" },
+    { value: "previous", label: `Previous response forms${data.previous.length ? ` (${data.previous.length})` : ""}`, icon: History, show: canReport && data.previous.length > 0 },
   ];
   const visible = views.filter((v) => v.show);
   const current = visible.some((v) => v.value === view) ? view : (visible[0]?.value ?? "results");

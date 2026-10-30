@@ -1,6 +1,6 @@
 # Handoff – project status and working agreements
 
-Read this first in a new session. Updated 29 Oct 2026.
+Read this first in a new session. Updated 30 Oct 2026.
 
 ## The project
 OleoQ: multi-tenant EHS SaaS (Documents, Incidents, Risk, Audits, Inspections, Law + Configuration). Three folders under `mvp1/`
@@ -15,7 +15,7 @@ and `../skills/ehs-functional-rebuild` (functional specs: `references/<module>.m
 | Platform (tenancy, scoped roles, placement, shared services; sidebar folds to icons after picking a page, 28 Oct) | done | `docs/modules/platform.md` |
 | Configuration hub (structure, users, roles, lists, numbering, branding, import, settings, audit log) | done | `docs/modules/configuration.md` |
 | Form Builder, scheduled jobs, My work | done | `docs/modules/forms.md`, `docs/modules/jobs.md` |
-| Documents (+ document surveys – shown as **Employee Induction** since 28 Oct, own page; tags 28 Oct) | done | `docs/modules/platform.md`, `docs/modules/document-surveys.md`, `docs/modules/document-tags.md` |
+| Documents (+ document surveys – shown as **Response forms** since 30 Oct, "Employee Induction" 28–30 Oct; menu My Documents · My Response Forms · Document Library, the library has Documents / Response forms tabs, Upload document + Create response form and library-wide numbers (Documents: To do · Overdue · Documents | Response forms: To complete · Overdue · Completed) in its banner, Create response form on My Response Forms, My Documents documents only with just Upload document, 30 Oct; tags 28 Oct) | done | `docs/modules/platform.md`, `docs/modules/document-surveys.md`, `docs/modules/document-tags.md` |
 | Incidents (+ admins add/rename incident types; Port of Cork demo types + per-type forms; type-first report wizard, 27 Oct; anonymous reporting; "Add action" wording without "preventive", 28 Oct) | done | `docs/modules/incidents.md` |
 | Risk (+ hazard lists per risk type on Configuration → Risk matrix; assessment Print + Save as document (PDF → Upload document), 28 Oct) | done | `docs/modules/risk.md` |
 | Actions – standalone (sidebar "Actions": My Actions, Create Action; Form Builder extra questions; My work, scheduled jobs, overdue notice; 28 Oct) | done | `docs/modules/actions.md` |
@@ -24,7 +24,8 @@ and `../skills/ehs-functional-rebuild` (functional specs: `references/<module>.m
 | Favourites (sidebar item under My work; ☆ in the top bar on the 14 search + 5 create pages – no Configuration, no Law; tiles with the user's title, icon and colour; filters/tabs restored from the URL via `useUrlState`, typed values restored as a starting "seed"; website links; blocked tiles for lost access; 29 Oct) | done | `docs/modules/favourites.md` |
 | Audits, Inspections | **not started – deferred by the product owner** | see "Next steps" |
 
-Quality at handoff: `tsc` 0 errors, 656 vitest tests green (29 Oct, after Favourites; incl. `test/seed`), eslint clean, `next build` clean (no warnings).
+Quality at handoff: `tsc` 0 errors, 658 vitest tests green (30 Oct, after Response forms; incl. `test/seed`), eslint clean, `next build` clean (no warnings).
+Response forms (30 Oct) has no migration – wording, menu and layout only.
 Migrations: `init`, `configuration`, `forms_jobs`, `incidents`, `risk`, `document_surveys`, `survey_optional_file`, `document_tags`,
 `anonymous_incident_reports`, `actions`, `law`, `simplified_law` (28–29 Oct, additive; all applied to Neon by the Vercel deploy of `ecf751f`, checked 29 Oct). `actions` also
 holds two idempotent data statements: it switches the `actions` module on for every existing tenant and appends the new
@@ -95,9 +96,10 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
     surveys too? employees tagging? (not built; one tag at a time; no; managers only – see document-tags.md)
 15. Risk hazard lists: "Other – type it" next to the list? manual order? block removing an option that assessments use?
     (strict list; alphabetical; allowed – assessments keep the name. See risk.md "Hazard lists per risk type")
-16. Employee Induction (the renamed surveys): should "Let people answer anonymously" default to off – or go – for inductions?
-    keep the "Feedback" example template? merge "New document" + "New induction" notifications? should "answers" counts and
-    the CSV column say "completed"? (on by default; kept; two; "answers" – see document-surveys.md "Name: Employee Induction")
+16. Response forms (the renamed surveys – "Employee Induction" 28–30 Oct): keep "Let people answer anonymously" on by default
+    now that the name is generic again? more example templates? merge "New document" + "New response form" notifications? should
+    "answers" counts and the CSV column say "completed"? (on by default; two examples; two; "answers" – see document-surveys.md
+    "Open questions")
 17. Risk Print / Save as document: link the saved document back to the assessment? re-export automatically on approval?
     which fields belong in the PDF (heat-map, open tasks, logo)? watermark or block drafts? pre-select an audience/category?
     (no link; manual; current set; drafts exportable without watermark; nothing pre-selected – see risk.md)
@@ -124,6 +126,10 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
     in the phone bottom nav? (no – Menu sheet); limit? (50 per user); favourites listed in the sidebar? (no); admin "recommended
     favourites" / switch-off? (not built); typed values on the server? (yes, owner-only); audited? (no); blocked ones removed
     automatically? (no – greyed with Remove); Law pages if Law is kept instead of Simplified law? (excluded today).
+23. Response forms layout (30 Oct – see document-surveys.md "Layout" 3; the owner chose library-wide numbers, which closes
+    "own vs company totals"): count a response form's acknowledgement still to give / overdue as To complete / Overdue, like
+    My Response Forms? (yes); banner numbers follow the table's search/filters? (no); numbers open a filtered list? (no –
+    headings open the tabs); keep search/filters when switching Document Library tabs? (cleared).
 
 ## Known issues and gotchas
 - Pages a user may not see render the not-found / access-denied UI with HTTP **200** (`(app)/loading.tsx` streams first); APIs return 404/403.
@@ -158,6 +164,7 @@ identical to `.env` there, or existing audit/acknowledgement signatures stop ver
   browser uploads (no clean-up job yet). The Print page opens the browser print dialog itself – in the in-app browser pane
   that dialog blocks the page; test Print through the menu with `window.print` stubbed.
 - `next dev` rewrites the block in `AGENTS.md` – leave it.
+- Git Bash `sed -i` turns CRLF files into LF (the whole file shows as changed): edit CRLF files with the Edit tool or Node.
 
 ## Next steps
 1. Product owner to answer the open questions above.

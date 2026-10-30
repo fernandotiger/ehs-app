@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { PaginationBar } from "@/components/common/pagination-bar";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/states";
 import { StatusBadge } from "@/components/common/status-badge";
-import { PageBanner } from "@/components/layout/page-header";
 import { useCurrentUser } from "@/components/providers/current-user-provider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,7 +20,7 @@ import { FilterSelect, SearchBox } from "../filters";
 import { answersLabel } from "./survey-indicator";
 
 const PAGE_SIZE = 20;
-/** URL state; `type` is fixed to "survey". */
+/** URL state; `type` is fixed to "survey" (the tab itself is `tab=forms`, read by the Document Library). */
 const urlSchema = libraryQuerySchema.pick({ page: true, q: true, status: true, createdBy: true });
 
 const STATUS_OPTIONS: { id: LibraryStatusFilter; name: string }[] = [
@@ -59,8 +58,11 @@ function subtitle(item: LibraryItem): string {
   return [item.currentVersion ? "With a file" : "No file", item.requiresAcknowledgement ? "Acknowledgement required" : null].filter(Boolean).join(" · ");
 }
 
-/** Employee Induction Library (menu "Induction Library") for managers and reporters – kept out of the Document Library. Rows open the induction page. */
-export function SurveyLibrary() {
+/**
+ * Document Library → Response forms tab (the former Survey / Induction Library) for managers and reporters. Surveys
+ * stay out of the Documents tab. Rows open the response form page; the create buttons are in the library's banner.
+ */
+export function SurveyLibraryTab() {
   const router = useRouter();
   const { can } = useCurrentUser();
   const canManage = can(PERMISSIONS.DOCUMENTS_MANAGE);
@@ -71,23 +73,9 @@ export function SurveyLibrary() {
 
   return (
     <>
-      <PageBanner
-        title="Employee Induction Library"
-        description="Create inductions, choose who should complete them and follow the answers."
-        actions={
-          canManage ? (
-            <Button asChild size="lg" className="bg-white text-brand-dark hover:bg-white/90">
-              <Link href="/documents/surveys/new">
-                <ClipboardCheck /> Create induction
-              </Link>
-            </Button>
-          ) : undefined
-        }
-      />
-
       <Card className="mb-4 gap-0 p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
-          <SearchBox value={search} onChange={setSearch} placeholder="Search inductions" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search response forms" />
           <FilterSelect
             value={status === "ACTIVE" ? undefined : status}
             onChange={(v) => set({ status: (v as LibraryStatusFilter | undefined) ?? "ACTIVE" })}
@@ -112,13 +100,13 @@ export function SurveyLibrary() {
       ) : library.data.items.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title="No inductions found"
-          description={filtered ? "Try a different search or filter." : "Create your first induction to get started."}
+          title="No response forms found"
+          description={filtered ? "Try a different search or filter." : "Create your first response form to get started."}
           action={
             canManage && !filtered ? (
               <Button asChild>
                 <Link href="/documents/surveys/new">
-                  <ClipboardCheck /> Create induction
+                  <ClipboardCheck /> Create response form
                 </Link>
               </Button>
             ) : undefined
@@ -153,7 +141,7 @@ export function SurveyLibrary() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="pl-4">Induction</TableHead>
+                  <TableHead className="pl-4">Response form</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Answers</TableHead>
                   <TableHead>Audience</TableHead>

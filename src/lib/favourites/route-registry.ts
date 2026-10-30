@@ -69,7 +69,10 @@ export const ROUTES: readonly RouteEntry[] = [
     tab: { key: "filter", default: "all", labels: { all: "All", action: "Action required", acknowledged: "Acknowledged" } },
   },
   { pattern: "/documents/[id]", title: "Document", icon: "FileText", module: "documents", kind: "other" },
-  { pattern: "/documents/manage", title: "Document Library", icon: "FileStack", module: "documents", permissions: DOCUMENT_LIBRARY, kind: "search" },
+  {
+    pattern: "/documents/manage", title: "Document Library", icon: "FileStack", module: "documents", permissions: DOCUMENT_LIBRARY, kind: "search",
+    tab: { key: "tab", default: "documents", labels: { documents: "Documents", forms: "Response forms" } },
+  },
   {
     pattern: "/documents/manage/new", title: "Upload document", icon: "FileUp", module: "documents", permissions: [P.DOCUMENTS_MANAGE], kind: "create",
     seed: "document.new",
@@ -82,12 +85,14 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   { pattern: "/documents/manage/[id]", title: "Manage document", icon: "FileText", module: "documents", permissions: DOCUMENT_LIBRARY, kind: "other" },
   {
-    pattern: "/documents/surveys", title: "My Inductions", icon: "ClipboardList", module: "documents", kind: "search",
+    pattern: "/documents/surveys", title: "My Response Forms", icon: "ClipboardList", module: "documents", kind: "search",
     tab: { key: "filter", default: "all", labels: { all: "All", todo: "To complete", answered: "Completed" } },
   },
-  { pattern: "/documents/surveys/library", title: "Induction Library", icon: "ClipboardCheck", module: "documents", permissions: DOCUMENT_LIBRARY, kind: "search" },
-  { pattern: "/documents/surveys/library/[id]", title: "Manage induction", icon: "ClipboardCheck", module: "documents", permissions: DOCUMENT_LIBRARY, kind: "other" },
-  { pattern: "/documents/surveys/new", title: "Create induction", icon: "SquarePen", module: "documents", permissions: [P.DOCUMENTS_MANAGE], kind: "create", seed: "survey.new" },
+  // Redirects to the Document Library's Response forms tab (30 Oct 2026). It stays "search" so favourites saved before
+  // still open (the redirect keeps their filters); new ones are saved on /documents/manage?tab=forms.
+  { pattern: "/documents/surveys/library", title: "Document Library – Response forms", icon: "ClipboardList", module: "documents", permissions: DOCUMENT_LIBRARY, kind: "search" },
+  { pattern: "/documents/surveys/library/[id]", title: "Manage response form", icon: "ClipboardList", module: "documents", permissions: DOCUMENT_LIBRARY, kind: "other" },
+  { pattern: "/documents/surveys/new", title: "Create response form", icon: "ClipboardCheck", module: "documents", permissions: [P.DOCUMENTS_MANAGE], kind: "create", seed: "survey.new" },
 
   // ── Incidents ─────────────────────────────────────────────────────────────
   { pattern: "/incidents", title: "Incidents overview", icon: "ShieldAlert", module: "incidents", kind: "other" },

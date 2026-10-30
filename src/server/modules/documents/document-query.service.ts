@@ -7,13 +7,14 @@ import { prisma } from "@/server/db/client";
 import { NotFoundError } from "@/server/http/errors";
 import { settingsService } from "@/server/modules/settings/settings.service";
 import { acknowledgementStatus, dueDateFor, satisfiesRequirement, type AckSettingDefaults } from "./acknowledgement-rules";
-import { assignedDocumentsWhere, audienceIncludesPrincipal, audienceRowSelect, visibleDocumentsWhere } from "./document-access.policy";
+import { assignedDocumentsWhere, audienceIncludesPrincipal, audiencePopulationWhere, audienceRowSelect, visibleDocumentsWhere } from "./document-access.policy";
 import { DOCUMENT_AUDIT, DOCUMENT_VERSION_ENTITY } from "./document-audit-actions";
 import { audienceNamedSelect, iso, toAudienceSummary, toStatus, toVersionSummary, versionSummarySelect } from "./document-mappers";
-import { buildRequirement, computeComplianceStats, requirementSelect, type RequirementDocument } from "./document-requirement";
+import { buildRequirement, computeComplianceStats, overdueWhere, requirementSelect, type RequirementDocument } from "./document-requirement";
 import { documentTagsInclude, tagFilterWhere, tagSearchWhere, toTags } from "./document-tags";
+import { formOverdueCutoff, tallyLibrarySummary, type LibraryDocumentFacts, type LibraryFormFacts, type LibrarySummary } from "./library-summary-rules";
 import { isSurveyActionRequired } from "./survey-rules";
-import { currentSurveyWhere, mySurveyStates, surveyDocumentsWhere, surveySummaries, surveysToAnswer } from "./survey-summary";
+import { currentSurveyWhere, effectiveDueDays, mySurveyStates, surveyDocumentsWhere, surveySettings, surveySummaries, surveysToAnswer } from "./survey-summary";
 import type { MySurveySummaryDto, SurveySummaryDto } from "./survey.dto";
 import type {
   AcknowledgementReceiptDto,
@@ -168,6 +169,16 @@ function libraryStatusWhere(status: LibraryQuery["status"]): Prisma.DocumentWher
     default:
       return { status };
   }
+}
+
+/** The library's rows before search and filters (Specification): shared by the list and its banner numbers. */
+function libraryScopeWhere(type: LibraryQuery["type"], status: LibraryQuery["status"]): Prisma.DocumentWhereInput {
+  return { AND: [libraryStatusWhere(status), surveyDocumentsWhere(type === "survey")] };
+}
+
+/** Existence check (cheaper than a count): does any user match? */
+async function anyUser(where: Prisma.UserWhereInput): Promise<boolean> {
+  return (await prisma.user.findFirst({ where, select: { id: true } })) !== null;
 }
 
 /**
@@ -329,8 +340,7 @@ export const documentQueryService = {
   async library(query: LibraryQuery, user: CurrentUser, now = new Date()) {
     const where: Prisma.DocumentWhereInput = {
       AND: [
-        libraryStatusWhere(query.status),
-        surveyDocumentsWhere(query.type === "survey"),
+        libraryScopeWhere(query.type, query.status),
         searchWhere(query.q),
         query.categoryId ? { categoryId: query.categoryId } : {},
         tagFilterWhere(query.tagId),
@@ -349,6 +359,69 @@ export const documentQueryService = {
     // Sequential per document keeps the connection pool free for other requests.
     for (const row of rows) items.push(await toLibraryItem(row, reqById.get(row.id)!, defaults, now, surveys.get(row.id) ?? null));
     return { items, total, page: query.page, pageSize: query.pageSize };
+  },
+
+  /**
+   * The Document Library banner: To do · Overdue · Documents and To complete · Overdue · Completed, counted over the
+   * library's default view (Active) with the same per-row rules as the tables (acknowledgement outstanding / overdue,
+   * response form "Not completed" / due dates). Search and filters do not change them. Sequential like `library`.
+   */
+  async librarySummary(now = new Date()): Promise<LibrarySummary> {
+    const documentScope = libraryScopeWhere("document", "ACTIVE");
+    const formScope: Prisma.DocumentWhereInput = { AND: [libraryScopeWhere("survey", "ACTIVE"), { status: "PUBLISHED" }] };
+    const [documentCount, trackedDocs, forms, defaults, formSettings] = await Promise.all([
+      prisma.document.count({ where: documentScope }),
+      prisma.document.findMany({ where: { AND: [documentScope, { status: "PUBLISHED", requiresAcknowledgement: true }] }, select: requirementSelect }),
+      prisma.documentSurvey.findMany({
+        where: { ...currentSurveyWhere(), document: formScope },
+        select: {
+          id: true,
+          status: true,
+          isMandatory: true,
+          dueDays: true,
+          mandatorySince: true,
+          createdAt: true,
+          document: { select: requirementSelect },
+        },
+      }),
+      settingsService.get("system"),
+      surveySettings(),
+    ]);
+
+    const documents: LibraryDocumentFacts[] = [];
+    for (const doc of trackedDocs) {
+      const req = buildRequirement(doc, defaults);
+      const overdue = overdueWhere(req, now);
+      documents.push({
+        someoneOutstanding: await anyUser({ AND: [req.population, req.outstanding] }),
+        someoneOverdue: overdue ? await anyUser(overdue) : false,
+      });
+    }
+
+    const formFacts: LibraryFormFacts[] = [];
+    for (const form of forms) {
+      const open = form.status === "ACTIVE";
+      const population = audiencePopulationWhere(form.document.audiences);
+      const notCompleted: Prisma.UserWhereInput = { AND: [population, { documentSurveyParticipations: { none: { surveyId: form.id } } }] };
+      const cutoff = formOverdueCutoff(
+        { isMandatory: form.isMandatory, open, publishedAt: form.document.publishedAt, mandatorySince: form.mandatorySince, createdAt: form.createdAt, dueDays: effectiveDueDays(form, formSettings) },
+        now,
+      );
+      const someoneNotCompleted = await anyUser(notCompleted);
+      // Acknowledging the form's file counts too (as on My Response Forms).
+      const ack = form.document.requiresAcknowledgement ? buildRequirement(form.document, defaults) : null;
+      const ackOverdue = ack ? overdueWhere(ack, now) : null;
+      formFacts.push({
+        open,
+        hasAudience: someoneNotCompleted || (await anyUser(population)),
+        someoneNotCompleted,
+        someoneOverdue: cutoff && someoneNotCompleted ? await anyUser({ AND: [notCompleted, { createdAt: { lt: cutoff } }] }) : false,
+        ackOutstanding: ack ? await anyUser({ AND: [ack.population, ack.outstanding] }) : false,
+        ackOverdue: ackOverdue ? await anyUser(ackOverdue) : false,
+      });
+    }
+
+    return tallyLibrarySummary({ documentCount, documents, forms: formFacts });
   },
 
   async manageDetail(id: string, now = new Date()): Promise<ManageDocumentDto> {
